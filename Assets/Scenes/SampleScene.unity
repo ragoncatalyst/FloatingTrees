@@ -2492,8 +2492,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4fbaf9bbb42f00045a5073ab7d04a10e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mainThrust: 80
-  rotationThrust: 5
+  mainThrust: 1000
+  rotationThrust: 30
   mainEngine: {fileID: 0}
   mainEngineParticles: {fileID: 0}
   leftThrusterParticle: {fileID: 0}
@@ -2647,8 +2647,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7dcb94a6dac13864db12fefc8798ba4f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxLandingSpeed: 5
-  explosionForce: 50
+  maxLandingSpeed: 10
+  explosionForce: 200
   explosionRadius: 10
 --- !u!54 &1634936364
 Rigidbody:
@@ -2658,7 +2658,7 @@ Rigidbody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1634936353}
   serializedVersion: 4
-  m_Mass: 6
+  m_Mass: 100
   m_Drag: 0
   m_AngularDrag: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
@@ -2675,7 +2675,7 @@ Rigidbody:
   m_UseGravity: 1
   m_IsKinematic: 0
   m_Interpolate: 0
-  m_Constraints: 0
+  m_Constraints: 48
   m_CollisionDetection: 0
 --- !u!1 &1723038889
 GameObject:

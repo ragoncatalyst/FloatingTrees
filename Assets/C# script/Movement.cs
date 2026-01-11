@@ -117,10 +117,6 @@ public class Movement : MonoBehaviour
         // 验证Rigidbody配置
         if (parentRigidbody != null)
         {
-            // 设置线性阻力和角阻力以减小惯性
-            parentRigidbody.drag = 1f;          // 线性阻力（减小平移惯性）
-            parentRigidbody.angularDrag = 3f;   // 角阻力（减小旋转惯性）
-            
             Debug.Log($"<color=green>★ Parent Rigidbody: isKinematic={parentRigidbody.isKinematic}, useGravity={parentRigidbody.useGravity}, drag={parentRigidbody.drag}, angularDrag={parentRigidbody.angularDrag}</color>");
         }
         
@@ -156,16 +152,15 @@ public class Movement : MonoBehaviour
     // 子物体跟随父物体的transform
     void SynchronizeChildRigidbodies()
     {
+        // 如果爆炸已发生（childRigidbodies被清空），停止同步
         if (childRigidbodies.Length == 0) return;
         
         // 确保所有子物体保持初始相对位置和旋转
-        for (int i = 0; i < childRigidbodies.Length; i++)
+        for (int i = 0; i < transform.childCount && i < initialLocalPositions.Length; i++)
         {
-            if (childRigidbodies[i] != null)
-            {
-                childRigidbodies[i].transform.localPosition = initialLocalPositions[i];
-                childRigidbodies[i].transform.localRotation = initialLocalRotations[i];
-            }
+            Transform child = transform.GetChild(i);
+            child.localPosition = initialLocalPositions[i];
+            child.localRotation = initialLocalRotations[i];
         }
     }
 
@@ -281,22 +276,80 @@ public class Movement : MonoBehaviour
     // 公共方法：爆炸时调用，为所有子方块添加Rigidbody并使其动态
     public void DetachChildRigidbodies()
     {
-        for (int i = 0; i < childRigidbodies.Length; i++)
+        Debug.Log("<color=red>★★★ DETACHING CHILD RIGIDBODIES - EXPLOSION! ★★★</color>");
+        
+        // 禁用父物体的Rigidbody（不再控制整体）
+        if (parentRigidbody != null)
         {
-            if (childRigidbodies[i] == null)
-            {
-                // 如果没有Rigidbody，添加一个
-                childRigidbodies[i] = transform.GetChild(i).gameObject.AddComponent<Rigidbody>();
-                childRigidbodies[i].velocity = parentRigidbody.velocity;
-                childRigidbodies[i].angularVelocity = parentRigidbody.angularVelocity;
-                Debug.Log($"Added dynamic Rigidbody to {transform.GetChild(i).name}");
-            }
-            else
-            {
-                // 如果已有Rigidbody，改为dynamic
-                childRigidbodies[i].isKinematic = false;
-                Debug.Log($"Made {childRigidbodies[i].gameObject.name} dynamic");
-            }
+            parentRigidbody.isKinematic = true;
+            parentRigidbody.useGravity = false;
+            Debug.Log("★ Parent Rigidbody set to kinematic");
         }
+        
+        // 为每个子方块添加物理组件并施加爆炸力
+        for (int i = 0; i < transform.childCount; i++)
+        {
+            Transform child = transform.GetChild(i);
+            
+            // 添加Rigidbody
+            Rigidbody childRb = child.GetComponent<Rigidbody>();
+            if (childRb == null)
+            {
+                childRb = child.gameObject.AddComponent<Rigidbody>();
+                Debug.Log($"<color=yellow>★ Added Rigidbody to {child.name}</color>");
+            }
+            
+            // 设置物理属性
+            childRb.isKinematic = false;
+            childRb.useGravity = true;
+            childRb.mass = 10f;           // 增加质量，让下落更有重量感
+            childRb.drag = 0.1f;          // 减小空气阻力
+            childRb.angularDrag = 0.3f;   // 减小旋转阻力
+            
+            // 继承父物体的速度
+            if (parentRigidbody != null)
+            {
+                childRb.velocity = parentRigidbody.velocity;
+                childRb.angularVelocity = parentRigidbody.angularVelocity;
+            }
+            
+            // 添加Collider（如果没有）
+            BoxCollider childCollider = child.GetComponent<BoxCollider>();
+            if (childCollider == null)
+            {
+                childCollider = child.gameObject.AddComponent<BoxCollider>();
+                Debug.Log($"<color=yellow>★ Added BoxCollider to {child.name}</color>");
+            }
+            
+            // 施加随机爆炸力
+            Vector3 explosionDirection = (child.position - transform.position).normalized;
+            if (explosionDirection.magnitude < 0.1f)
+            {
+                // 如果方块在中心，随机一个方向
+                explosionDirection = new Vector3(
+                    UnityEngine.Random.Range(-1f, 1f),
+                    UnityEngine.Random.Range(-1f, 1f),
+                    UnityEngine.Random.Range(-1f, 1f)
+                ).normalized;
+            }
+            
+            float explosionForce = UnityEngine.Random.Range(300f, 500f);
+            childRb.AddForce(explosionDirection * explosionForce);
+            
+            // 添加随机旋转力
+            Vector3 randomTorque = new Vector3(
+                UnityEngine.Random.Range(-100f, 100f),
+                UnityEngine.Random.Range(-100f, 100f),
+                UnityEngine.Random.Range(-100f, 100f)
+            );
+            childRb.AddTorque(randomTorque);
+            
+            Debug.Log($"<color=red>★ {child.name} EXPLODED! Force: {explosionForce:F0}, Direction: {explosionDirection}</color>");
+        }
+        
+        // 停止同步子物体（不再调用SynchronizeChildRigidbodies）
+        childRigidbodies = new Rigidbody[0];
+        
+        Debug.Log("<color=red>★★★ EXPLOSION COMPLETE! ★★★</color>");
     }
 }

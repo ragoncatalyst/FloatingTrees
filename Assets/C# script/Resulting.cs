@@ -16,6 +16,8 @@ public class Resulting : MonoBehaviour
     [SerializeField] float levelLoadDelay = 3f;           // 场景加载延迟
     [SerializeField] TextAsset failureCommentsFile;       // 失败评语文件
     [SerializeField] float maxLandingSpeed = 5f;          // 最大安全着陆速度（与CollisionHandler同步）
+    [SerializeField] float stopConfirmationTime = 0.8f;   // 需要保持静止的时间（秒）
+    [SerializeField] float stoppedThreshold = 0.1f;       // 判定为停止的速度阈值
     
     private CollisionHandler collisionHandler;            // 碰撞处理器
     private bool hasResult = false;                       // 是否已经有结果（胜利或失败）
@@ -26,7 +28,6 @@ public class Resulting : MonoBehaviour
     private Movement movementController;                  // 用于检查玩家是否操控过
     private float stoppedTime = 0f;                       // 速度为0持续的时间
     private bool hasDetectedStop = false;                 // 是否已经检测到速度变为0
-    private const float stopConfirmationTime = 0.8f;      // 需要保持静止的时间（秒）
     private Dictionary<string, List<string>> failureComments = new Dictionary<string, List<string>>();  // 失败评语字典
 
     void Start()
@@ -183,8 +184,6 @@ public class Resulting : MonoBehaviour
         // 只有在玩家操控过火箭后，才开始追踪速度变化
         if (movementController != null && movementController.HasPlayerControlled())
         {
-            const float stoppedThreshold = 0.1f;
-            
             // 记录是否曾经有过速度
             if (currentSpeed > stoppedThreshold)
             {

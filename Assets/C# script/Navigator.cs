@@ -88,6 +88,25 @@ public class Navigator : MonoBehaviour
             return;
         }
 
+        // 检查LandingPad是否在相机视野内
+        if (mainCamera != null && IsTargetVisible())
+        {
+            // 如果LandingPad在视野内，隐藏radar
+            if (radarRenderer != null)
+            {
+                radarRenderer.enabled = false;
+            }
+            return;
+        }
+        else
+        {
+            // 如果LandingPad不在视野内，显示radar
+            if (radarRenderer != null)
+            {
+                radarRenderer.enabled = true;
+            }
+        }
+
         // 计算从Rocket到LandingPad的方向
         Vector3 toTargetVector = landingPadTransform.position - rocketTransform.position;
         
@@ -108,6 +127,30 @@ public class Navigator : MonoBehaviour
         float scaleRatio = Mathf.Clamp01(1.0f - (distanceXZ / scaleDistance));
         float targetScale = Mathf.Lerp(minScale, maxScale, scaleRatio);
         radarSphereTransform.localScale = initialScale * targetScale;
+    }
+
+    // 检查LandingPad是否在相机视野内
+    bool IsTargetVisible()
+    {
+        if (mainCamera == null || landingPadTransform == null)
+            return false;
+
+        // 获取LandingPad的Renderer来检测可见性
+        Renderer targetRenderer = landingPadTransform.GetComponent<Renderer>();
+        if (targetRenderer != null)
+        {
+            // 使用GeometryUtility检查物体是否在视锥体内
+            Plane[] planes = GeometryUtility.CalculateFrustumPlanes(mainCamera);
+            return GeometryUtility.TestPlanesAABB(planes, targetRenderer.bounds);
+        }
+
+        // 如果没有Renderer，使用视口坐标判断
+        Vector3 viewportPoint = mainCamera.WorldToViewportPoint(landingPadTransform.position);
+        
+        // 检查是否在视口内（x和y在0-1之间，z>0表示在相机前方）
+        return viewportPoint.z > 0 && 
+               viewportPoint.x > 0 && viewportPoint.x < 1 && 
+               viewportPoint.y > 0 && viewportPoint.y < 1;
     }
 
     void UpdateBlink()

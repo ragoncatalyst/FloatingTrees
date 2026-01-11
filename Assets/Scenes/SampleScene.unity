@@ -2648,7 +2648,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxLandingSpeed: 10
-  explosionForce: 200
+  explosionForce: 2000
   explosionRadius: 10
 --- !u!54 &1634936364
 Rigidbody:

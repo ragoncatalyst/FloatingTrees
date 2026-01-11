@@ -5,7 +5,11 @@ using UnityEngine;
 
 public class CollisionHandler : MonoBehaviour
 {
+    [Header("Collision Settings")]
     [SerializeField] float maxLandingSpeed = 5f;          // 最大安全着陆速度
+    [SerializeField] float takeoffSpeedThreshold = 1f;    // 速度超过此值认为已起飞，清空接触历史
+    
+    [Header("Explosion Settings")]
     [SerializeField] float explosionForce = 500f;         // 爆炸力强度
     [SerializeField] float explosionRadius = 10f;         // 爆炸半径
     
@@ -95,11 +99,11 @@ public class CollisionHandler : MonoBehaviour
         {
             Debug.Log($"<color=red>★ CRASH: Impact speed too high! {impactSpeed:F1} m/s > {maxLandingSpeed} m/s</color>");
             
-            // 改变所有子方块为dynamic状态（解除粘合）
+            // 改变所有子方块为dynamic状态（解除粘合），传递撞击速度
             Movement movementController = GetComponent<Movement>();
             if (movementController != null)
             {
-                movementController.DetachChildRigidbodies();
+                movementController.DetachChildRigidbodies(impactSpeed);
             }
             
             // 施加爆炸力
@@ -173,7 +177,6 @@ public class CollisionHandler : MonoBehaviour
         if (activeCollisions.Count == 0 && lastContactedObjects.Count > 0)
         {
             float currentSpeed = GetCurrentSpeed();
-            const float takeoffSpeedThreshold = 1f;  // 速度超过1m/s认为已起飞
             
             if (currentSpeed > takeoffSpeedThreshold)
             {

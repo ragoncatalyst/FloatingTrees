@@ -5,13 +5,21 @@ using UnityEngine;
 
 public class Movement : MonoBehaviour
 {
+    [Header("Movement Settings")]
     [SerializeField] float mainThrust = 100f;
     [SerializeField] float rotationThrust = 10f;          // 旋转力矩
     [SerializeField] AudioClip mainEngine;
     
+    [Header("Particle Effects")]
     [SerializeField] ParticleSystem mainEngineParticles;
     [SerializeField] ParticleSystem leftThrusterParticle;
     [SerializeField] ParticleSystem rightThrusterParticle;
+    
+    [Header("Explosion Settings")]
+    [SerializeField] float explosionForceMultiplier = 50f;  // 爆炸力系数（力 = 速度 × 系数）
+    [SerializeField] float debrisMass = 10f;                // 碎片质量
+    [SerializeField] float debrisDrag = 0.1f;               // 碎片线性阻力
+    [SerializeField] float debrisAngularDrag = 0.3f;        // 碎片角阻力
     
     private Rigidbody parentRigidbody;                    // 父物体的Rigidbody（用于驱动整体运动）
     private Rigidbody[] childRigidbodies;                 // 所有子物体的Rigidbody（用于碰撞检测）
@@ -274,9 +282,15 @@ public class Movement : MonoBehaviour
     }
     
     // 公共方法：爆炸时调用，为所有子方块添加Rigidbody并使其动态
-    public void DetachChildRigidbodies()
+    public void DetachChildRigidbodies(float impactSpeed)
     {
-        Debug.Log("<color=red>★★★ DETACHING CHILD RIGIDBODIES - EXPLOSION! ★★★</color>");
+        Debug.Log($"<color=red>★★★ DETACHING CHILD RIGIDBODIES - EXPLOSION! Impact Speed: {impactSpeed:F2} m/s ★★★</color>");
+        
+        // 根据撞击速度计算爆炸力和扭矩
+        float calculatedExplosionForce = impactSpeed * explosionForceMultiplier;
+        float calculatedTorque = impactSpeed * 10f;  // 扭矩也与速度成正比
+        
+        Debug.Log($"<color=red>★ Calculated explosion force: {calculatedExplosionForce:F0}, torque: {calculatedTorque:F0}</color>");
         
         // 禁用父物体的Rigidbody（不再控制整体）
         if (parentRigidbody != null)
@@ -302,15 +316,20 @@ public class Movement : MonoBehaviour
             // 设置物理属性
             childRb.isKinematic = false;
             childRb.useGravity = true;
-            childRb.mass = 10f;           // 增加质量，让下落更有重量感
-            childRb.drag = 0.1f;          // 减小空气阻力
-            childRb.angularDrag = 0.3f;   // 减小旋转阻力
+            childRb.mass = debrisMass;
+            childRb.drag = debrisDrag;
+            childRb.angularDrag = debrisAngularDrag;
+            childRb.collisionDetectionMode = CollisionDetectionMode.Continuous;  // 防止高速穿透
+            childRb.interpolation = RigidbodyInterpolation.Interpolate;  // 平滑运动
+            
+            Debug.Log($"<color=cyan>★ {child.name} Rigidbody configured: mass={childRb.mass}, useGravity={childRb.useGravity}, isKinematic={childRb.isKinematic}</color>");
             
             // 继承父物体的速度
             if (parentRigidbody != null)
             {
                 childRb.velocity = parentRigidbody.velocity;
                 childRb.angularVelocity = parentRigidbody.angularVelocity;
+                Debug.Log($"<color=cyan>★ {child.name} inherited velocity: {childRb.velocity.magnitude:F2} m/s</color>");
             }
             
             // 添加Collider（如果没有）
@@ -321,7 +340,22 @@ public class Movement : MonoBehaviour
                 Debug.Log($"<color=yellow>★ Added BoxCollider to {child.name}</color>");
             }
             
-            // 施加随机爆炸力
+            // 确保Collider设置正确
+            childCollider.isTrigger = false;
+            
+            // 重置Collider为默认大小（适配MeshRenderer/Renderer）
+            childCollider.center = Vector3.zero;
+            childCollider.size = Vector3.one;
+            
+            // 强制唤醒Rigidbody，确保物理计算立即生效
+            childRb.WakeUp();
+            
+            // 设置碰撞检测模式为Continuous，防止高速穿透
+            childRb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+            
+            Debug.Log($"<color=green>★ {child.name} Physics Setup Complete - Mass: {childRb.mass}, Collider: {childCollider.size}, isTrigger: {childCollider.isTrigger}</color>");
+            
+            // 施加爆炸力（基于撞击速度）
             Vector3 explosionDirection = (child.position - transform.position).normalized;
             if (explosionDirection.magnitude < 0.1f)
             {
@@ -333,16 +367,18 @@ public class Movement : MonoBehaviour
                 ).normalized;
             }
             
-            float explosionForce = UnityEngine.Random.Range(300f, 500f);
-            childRb.AddForce(explosionDirection * explosionForce);
+            // 添加随机偏移（±20%）使爆炸更自然
+            float randomFactor = UnityEngine.Random.Range(0.8f, 1.2f);
+            float explosionForce = calculatedExplosionForce * randomFactor;
+            childRb.AddForce(explosionDirection * explosionForce, ForceMode.Impulse);
             
-            // 添加随机旋转力
+            // 添加随机旋转力（基于速度）
             Vector3 randomTorque = new Vector3(
-                UnityEngine.Random.Range(-100f, 100f),
-                UnityEngine.Random.Range(-100f, 100f),
-                UnityEngine.Random.Range(-100f, 100f)
+                UnityEngine.Random.Range(-calculatedTorque, calculatedTorque),
+                UnityEngine.Random.Range(-calculatedTorque, calculatedTorque),
+                UnityEngine.Random.Range(-calculatedTorque, calculatedTorque)
             );
-            childRb.AddTorque(randomTorque);
+            childRb.AddTorque(randomTorque, ForceMode.Impulse);
             
             Debug.Log($"<color=red>★ {child.name} EXPLODED! Force: {explosionForce:F0}, Direction: {explosionDirection}</color>");
         }

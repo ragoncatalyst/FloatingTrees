@@ -14,14 +14,12 @@ public class Resulting : MonoBehaviour
     
     [Header("Victory/Defeat Settings")]
     [SerializeField] float levelLoadDelay = 3f;           // 场景加载延迟
-    [SerializeField] float maxLandingSpeed = 5f;          // 最大安全着陆速度
-    [SerializeField] float stoppedThreshold = 0.1f;       // 判定为停止的速度阈值
     [SerializeField] TextAsset failureCommentsFile;       // 失败评语文件
+    [SerializeField] float maxLandingSpeed = 5f;          // 最大安全着陆速度（与CollisionHandler同步）
     
-    private Rigidbody rb;
+    private CollisionHandler collisionHandler;            // 碰撞处理器
     private bool hasResult = false;                       // 是否已经有结果（胜利或失败）
     private bool isLanded = false;                        // 是否处于着陆状态
-    private HashSet<Collision> activeCollisions = new HashSet<Collision>();  // 当前接触的碰撞
     private bool wasOverSpeed = false;                    // 上一帧是否超速
     private float lastFrameSpeed = 0f;                    // 上一帧的速度
     private bool hasEverHadVelocity = false;              // 是否曾经有过速度（非零）
@@ -30,12 +28,21 @@ public class Resulting : MonoBehaviour
     private bool hasDetectedStop = false;                 // 是否已经检测到速度变为0
     private const float stopConfirmationTime = 0.8f;      // 需要保持静止的时间（秒）
     private Dictionary<string, List<string>> failureComments = new Dictionary<string, List<string>>();  // 失败评语字典
-    private List<string> lastContactedObjects = new List<string>();  // 最后接触的物体名称列表
 
     void Start()
     {
-        rb = GetComponent<Rigidbody>();
+        collisionHandler = GetComponent<CollisionHandler>();
         movementController = GetComponent<Movement>();
+        
+        if (collisionHandler == null)
+        {
+            Debug.LogError("CollisionHandler not found on parent!");
+        }
+        else
+        {
+            // 订阅碰撞事件
+            collisionHandler.OnCrash += HandleCrash;
+        }
         
         // 初始化时隐藏所有文本
         if (victoryText != null)
@@ -110,162 +117,120 @@ public class Resulting : MonoBehaviour
         Debug.Log($"Loaded {failureComments.Count} failure comment categories");
     }
 
+    void OnDestroy()
+    {
+        // 取消订阅事件
+        if (collisionHandler != null)
+        {
+            collisionHandler.OnCrash -= HandleCrash;
+        }
+    }
+
+    // 处理超速撞击（由CollisionHandler触发）
+    void HandleCrash(string crashReason)
+    {
+        if (hasResult) return;  // 如果已经有结果，不再处理
+        
+        Debug.Log($"<color=red>★★★ HandleCrash called with reason: {crashReason}</color>");
+        TriggerDefeat(crashReason);
+    }
+
     void FixedUpdate()
     {
         // 如果已经有结果，不再检查
         if (hasResult) return;
         
-        // 如果处于着陆状态，持续检查
-        if (isLanded)
+        // 从CollisionHandler获取当前着陆信息
+        if (collisionHandler == null) return;
+        
+        LandingInfo landingInfo = collisionHandler.CheckLandingStatus();
+        
+        // 更新着陆状态
+        if (landingInfo.isLanded != isLanded)
+        {
+            isLanded = landingInfo.isLanded;
+            if (isLanded)
+                Debug.Log("<color=yellow>★ Resulting: Rocket ENTERED landing state</color>");
+            else
+                Debug.Log("<color=cyan>★ Resulting: Rocket LEFT landing state</color>");
+        }
+        
+        // 无论是否着陆，只要曾经接触过物体，就持续检查速度和结局
+        if (landingInfo.contactedObjects.Count > 0)
         {
             CheckLandingStatus();
         }
     }
 
-    void OnCollisionEnter(Collision collision)
-    {
-        // 如果已经有结果，不再处理碰撞
-        if (hasResult) return;
-        
-        // 检查碰撞速度
-        float impactSpeed = collision.relativeVelocity.magnitude;
-        
-        Debug.Log($"Collision with {collision.gameObject.name} (Tag: {collision.gameObject.tag}), Impact speed: {impactSpeed:F2} m/s");
-        
-        // 先添加到接触列表
-        activeCollisions.Add(collision);
-        
-        if (impactSpeed > maxLandingSpeed)
-        {
-            // 超速碰撞，需要判定失败类型
-            Debug.Log($"<color=red>FAILED: Impact speed too high! {impactSpeed:F1} m/s > {maxLandingSpeed} m/s</color>");
-            
-            // 判定超速撞击的类型
-            string name = collision.gameObject.name;
-            string tag = collision.gameObject.tag;
-            
-            string failureCategory = "00";
-            if (name == "LaunchingPad")
-            {
-                failureCategory = "03";
-            }
-            else if (name == "LandingPad")
-            {
-                failureCategory = "04";
-            }
-            else if (tag == "Terrain")
-            {
-                failureCategory = "05";
-            }
-            
-            TriggerDefeat(failureCategory);
-            return;
-        }
-        
-        // 没有超速，进入着陆状态
-        if (!isLanded)
-        {
-            isLanded = true;
-            Debug.Log("<color=yellow>Entered landing state - started monitoring</color>");
-        }
-    }
-
-    void OnCollisionStay(Collision collision)
-    {
-        // 确保碰撞在列表中
-        if (!hasResult && !activeCollisions.Contains(collision))
-        {
-            activeCollisions.Add(collision);
-        }
-        
-        // 持续更新最后接触的物体列表
-        if (!hasResult)
-        {
-            string name = collision.gameObject.name;
-            if (!lastContactedObjects.Contains(name))
-            {
-                lastContactedObjects.Add(name);
-                Debug.Log($"Added to lastContactedObjects: {name}");
-            }
-        }
-    }
-
-    void OnCollisionExit(Collision collision)
-    {
-        // 从接触列表中移除
-        activeCollisions.Remove(collision);
-        
-        Debug.Log($"Left contact with {collision.gameObject.name}, remaining contacts: {activeCollisions.Count}");
-        
-        // 如果没有任何接触了，离开着陆状态
-        if (activeCollisions.Count == 0)
-        {
-            isLanded = false;
-            hasDetectedStop = false;  // 重置停止检测
-            stoppedTime = 0f;          // 重置停止计时
-            lastContactedObjects.Clear();  // 清空最后接触的物体列表
-            Debug.Log("<color=cyan>Left landing state - took off again</color>");
-        }
-    }
-
     void CheckLandingStatus()
     {
-        // 检查是否还有接触物体
-        if (activeCollisions.Count == 0)
+        // 从 CollisionHandler 获取着陆信息
+        if (collisionHandler == null) return;
+        
+        LandingInfo landingInfo = collisionHandler.CheckLandingStatus();
+        
+        // 如果没有接触历史记录，重置所有状态
+        if (landingInfo.contactedObjects.Count == 0)
         {
-            isLanded = false;
-            lastFrameSpeed = rb.velocity.magnitude;
             hasDetectedStop = false;
             stoppedTime = 0f;
+            hasEverHadVelocity = false;
             return;
         }
         
-        // 检查当前速度
-        float currentSpeed = rb.velocity.magnitude;
+        float currentSpeed = landingInfo.currentSpeed;
         
         // 只有在玩家操控过火箭后，才开始追踪速度变化
         if (movementController != null && movementController.HasPlayerControlled())
         {
+            const float stoppedThreshold = 0.1f;
+            
             // 记录是否曾经有过速度
             if (currentSpeed > stoppedThreshold)
             {
                 hasEverHadVelocity = true;
             }
             
-            // 检查是否从有速度降到无速度
+            // 检查当前是否停止
             bool isStopped = currentSpeed <= stoppedThreshold;
-            bool wasMoving = lastFrameSpeed > stoppedThreshold;
             
-            // 首次检测到速度变为0
-            if (isStopped && wasMoving && hasEverHadVelocity && !hasDetectedStop)
+            // 如果当前停止且曾经移动过
+            if (isStopped && hasEverHadVelocity)
             {
-                hasDetectedStop = true;
-                stoppedTime = 0f;
-                Debug.Log($"<color=yellow>Rocket speed dropped to 0! Now monitoring for {stopConfirmationTime}s to confirm stable stop...</color>");
-            }
-            
-            // 如果已经检测到速度为0，继续计时
-            if (hasDetectedStop && isStopped)
-            {
+                // 如果还没开始计时，开始计时
+                if (!hasDetectedStop)
+                {
+                    hasDetectedStop = true;
+                    stoppedTime = 0f;
+                    Debug.Log($"<color=yellow>★ Speed STOPPED! Now monitoring for {stopConfirmationTime}s...</color>");
+                }
+                
+                // 继续计时
                 stoppedTime += Time.fixedDeltaTime;
+                Debug.Log($"<color=yellow>★ Stopped for {stoppedTime:F2}s/{stopConfirmationTime}s (contacts: {landingInfo.contactedObjects.Count})</color>");
                 
                 // 如果速度在0.8秒内一直保持为0，判定为稳定停止
                 if (stoppedTime >= stopConfirmationTime)
                 {
-                    Debug.Log($"<color=yellow>Rocket confirmed stable! Stopped for {stoppedTime:F2}s, checking victory conditions...</color>");
+                    Debug.Log($"<color=green>★★★ STABLE STOP CONFIRMED! Checking victory...</color>");
                     hasDetectedStop = false;  // 重置，防止重复判定
                     stoppedTime = 0f;
-                    CheckVictoryConditions();
+                    CheckVictoryConditions(landingInfo);
                 }
             }
-            else if (hasDetectedStop && !isStopped)
+            else if (!isStopped)
             {
-                // 速度不为0了，重置计时
-                Debug.Log($"<color=cyan>Rocket started moving again during confirmation period! Speed: {currentSpeed:F2} m/s</color>");
-                hasDetectedStop = false;
-                stoppedTime = 0f;
+                // 速度不为0，重置计时
+                if (hasDetectedStop)
+                {
+                    Debug.Log($"<color=cyan>Speed increased to {currentSpeed:F2} m/s, resetting...</color>");
+                    hasDetectedStop = false;
+                    stoppedTime = 0f;
+                }
             }
         }
+        
+        lastFrameSpeed = currentSpeed;
         
         // 检测速度变化（避免每帧输出）
         bool isOverSpeed = currentSpeed > maxLandingSpeed;
@@ -286,26 +251,34 @@ public class Resulting : MonoBehaviour
         lastFrameSpeed = currentSpeed;
     }
 
-    void CheckVictoryConditions()
+    void CheckVictoryConditions(LandingInfo landingInfo)
     {
-        // 使用最后接触的物体列表而不是activeCollisions
+        // 使用从 CollisionHandler 获取的接触物体列表
         List<string> landingPads = new List<string>();
         List<string> launchingPads = new List<string>();
         List<string> otherObjects = new List<string>();
         bool landingPadHasFinish = false;
         
-        Debug.Log($"CheckVictoryConditions - lastContactedObjects: {string.Join(", ", lastContactedObjects)}");
+        Debug.Log($"<color=green>★★★ CheckVictoryConditions - contactedObjects: {string.Join(", ", landingInfo.contactedObjects)}</color>");
         
-        foreach (string objectName in lastContactedObjects)
+        foreach (string objectName in landingInfo.contactedObjects)
         {
+            // 从CollisionHandler获取这个物体的Tag
+            string objectTag = collisionHandler.GetContactedObjectTag(objectName);
+            Debug.Log($"<color=green>  - {objectName}, Tag: {objectTag}</color>");
+            
             if (objectName == "LandingPad")
             {
                 landingPads.Add(objectName);
-                // 检查LandingPad是否有Finish标签（需要在场景中查找）
-                GameObject obj = GameObject.Find(objectName);
-                if (obj != null && obj.CompareTag("Finish"))
+                // 检查是否有Finish标签
+                if (objectTag == "Finish")
                 {
                     landingPadHasFinish = true;
+                    Debug.Log($"<color=green>    -> LandingPad HAS Finish tag!</color>");
+                }
+                else
+                {
+                    Debug.Log($"<color=yellow>    -> LandingPad does NOT have Finish tag (Tag: {objectTag})</color>");
                 }
             }
             else if (objectName == "LaunchingPad")
@@ -318,16 +291,17 @@ public class Resulting : MonoBehaviour
             }
         }
         
-        Debug.Log($"CheckVictoryConditions - LandingPads={landingPads.Count}(Finish={landingPadHasFinish}), LaunchingPads={launchingPads.Count}, Others={otherObjects.Count}");
+        Debug.Log($"<color=green>★★★ CheckVictoryConditions - LandingPads={landingPads.Count}(Finish={landingPadHasFinish}), LaunchingPads={launchingPads.Count}, Others={otherObjects.Count}</color>");
         
         // 判定胜利：必须有LandingPad且有Finish标签，且没有LaunchingPad和其他物体
         if (landingPads.Count > 0 && landingPadHasFinish && launchingPads.Count == 0 && otherObjects.Count == 0)
         {
-            Debug.Log("<color=green>VICTORY! Landed safely on LandingPad!</color>");
+            Debug.Log("<color=green>★★★★★ VICTORY! Landed safely on LandingPad with Finish tag! ★★★★★</color>");
             TriggerVictory();
         }
         else
         {
+            Debug.Log($"<color=red>Victory conditions NOT met: LandingPads={landingPads.Count}, HasFinish={landingPadHasFinish}, LaunchingPads={launchingPads.Count}, Others={otherObjects.Count}</color>");
             // 失败判定
             DeterminFailureType(launchingPads.Count > 0, landingPads.Count > 0, otherObjects.Count > 0, lastFrameSpeed > maxLandingSpeed);
         }
@@ -366,20 +340,26 @@ public class Resulting : MonoBehaviour
                 failureCategory = "01";
                 Debug.Log("Failure Type: 01 - Only LaunchingPad");
             }
-            else if (hasLaunchingPad && hasOtherObjects && !hasLandingPad)
+            else if (hasLandingPad && !hasLaunchingPad && !hasOtherObjects)
             {
+                // 只有LandingPad但没有Finish标签（应该在CheckVictoryConditions已经排除了有Finish的情况）
                 failureCategory = "02";
-                Debug.Log("Failure Type: 02 - LaunchingPad with others");
+                Debug.Log("Failure Type: 02 - LandingPad without Finish tag");
             }
-            else if (hasLandingPad && hasOtherObjects && !hasLaunchingPad)
+            else if (hasLandingPad && hasOtherObjects)
             {
                 failureCategory = "06";
                 Debug.Log("Failure Type: 06 - LandingPad with others");
             }
+            else if (hasLaunchingPad && hasOtherObjects)
+            {
+                failureCategory = "06";
+                Debug.Log("Failure Type: 06 - LaunchingPad with others");
+            }
             else
             {
                 failureCategory = "00";
-                Debug.Log("Failure Type: 00 - Other case");
+                Debug.Log($"Failure Type: 00 - Other case (L={hasLaunchingPad}, LP={hasLandingPad}, O={hasOtherObjects})");
             }
         }
         
@@ -389,12 +369,18 @@ public class Resulting : MonoBehaviour
     void TriggerVictory()
     {
         hasResult = true;
-        Debug.Log("Victory! Level Complete!");
+        Debug.Log("<color=green>★★★ VICTORY! Level Complete! ★★★</color>");
         
         // 显示胜利文本
         if (victoryText != null)
         {
             victoryText.gameObject.SetActive(true);
+        }
+        
+        // 清空CollisionHandler状态
+        if (collisionHandler != null)
+        {
+            collisionHandler.ResetState();
         }
         
         // 停止音效
@@ -411,7 +397,7 @@ public class Resulting : MonoBehaviour
     void TriggerDefeat(string failureCategory)
     {
         hasResult = true;
-        Debug.Log($"Defeat - Category: {failureCategory}");
+        Debug.Log($"<color=red>★★★ DEFEAT - Category: {failureCategory} ★★★</color>");
         
         // 显示失败文本
         if (defeatText != null)
@@ -425,7 +411,13 @@ public class Resulting : MonoBehaviour
             string comment = GetRandomFailureComment(failureCategory);
             defeatCommentText.text = comment;
             defeatCommentText.gameObject.SetActive(true);
-            Debug.Log($"Failure comment: {comment}");
+            Debug.Log($"<color=red>Failure comment: {comment}</color>");
+        }
+        
+        // 清空CollisionHandler状态
+        if (collisionHandler != null)
+        {
+            collisionHandler.ResetState();
         }
         
         // 停止音效

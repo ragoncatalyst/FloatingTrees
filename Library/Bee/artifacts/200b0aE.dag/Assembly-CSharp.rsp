@@ -353,6 +353,7 @@
 -analyzer:"/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/Tools/Unity.SourceGenerators/Unity.Properties.SourceGenerator.dll"
 -analyzer:"/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/Tools/Unity.SourceGenerators/Unity.SourceGenerators.dll"
 "Assets/C# script/CamaraFollow.cs"
+"Assets/C# script/ChildCollisionForwarder.cs"
 "Assets/C# script/CollisionHandler.cs"
 "Assets/C# script/Movement.cs"
 "Assets/C# script/Navigator.cs"

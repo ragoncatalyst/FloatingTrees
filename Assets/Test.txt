@@ -12,30 +12,30 @@
 
 
 
-00_1 "00_1"
-00_2 "00_2"
-00_3 "00_3"
+00_1 "00_1 Land on somewhere else 1"
+00_2 "00_2 Land on somewhere else 2"
+00_3 "00_3 Land on somewhere else 3"
 
-01_1 "01_1"
-01_2 "01_2"
-01_3 "01_3"
+01_1 "01_1 Back to launching pad 1"
+01_2 "01_2 Back to launching pad 2"
+01_3 "01_3 Back to launching pad 3"
 
-02_1 "02_1"
-02_2 "02_2"
-02_3 "02_3"
+02_1 "02_1 Leaning on launching pad 1"
+02_2 "02_2 Leaning on launching pad 2"
+02_3 "02_3 Leaning on launching pad 3"
 
-03_1 "03_1"
-03_2 "03_2"
-03_3 "03_3"
+03_1 "03_1 Hit launching pad 1"
+03_2 "03_2 Hit launching pad 2"
+03_3 "03_3 Hit launching pad 3"
 
-04_1 "04_1"
-04_2 "04_2"
-04_3 "04_3"
+04_1 "04_1 Hit landing pad 1"
+04_2 "04_2 Hit landing pad 2"
+04_3 "04_3 Hit landing pad 3"
 
-05_1 "05_1"
-05_2 "05_2"
-05_3 "05_3"
+05_1 "05_1 Hit terrain 1"
+05_2 "05_2 Hit terrain 2"
+05_3 "05_3 Hit terrain 3"
 
-06_1 "06_1"
-06_2 "06_2"
-06_3 "06_3"
+06_1 "06_1 Leaning on landing pad 1"
+06_2 "06_2 Leaning on landing pad 2"
+06_3 "06_3 Leaning on landing pad 3"

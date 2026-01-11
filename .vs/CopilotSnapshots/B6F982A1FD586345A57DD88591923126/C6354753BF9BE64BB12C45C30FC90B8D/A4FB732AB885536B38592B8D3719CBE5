@@ -1,0 +1,55 @@
+﻿using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+public class CollisionHandler : MonoBehaviour
+{
+    [SerializeField] float levelLoadDelay = 2f;
+    
+    void OnCollisionEnter(Collision collision)
+    {
+        switch (collision.gameObject.tag)
+        {
+            case "Friendly":
+                Debug.Log("Friendly"); 
+                break;
+            case "Finish":
+                HandleFinish();
+                break;
+            default:
+                StartCrashSequence();
+                Debug.Log("Dead"); 
+                break;
+        }
+    }
+
+    void StartCrashSequence()
+    {
+        GetComponent<AudioSource>().enabled = false;
+        Invoke("Respawn", levelLoadDelay);
+    }
+
+    void Respawn()
+    {
+        int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
+        SceneManager.LoadScene(currentSceneIndex);
+    }
+
+    void HandleFinish()
+    {
+        Debug.Log("Finish");
+        Invoke("NextLevel", levelLoadDelay);
+    }
+
+    void NextLevel()
+    {
+        int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
+        int nextSceneIndex = currentSceneIndex + 1;
+        if (nextSceneIndex == SceneManager.sceneCountInBuildSettings)
+        {
+            nextSceneIndex = 0;
+        }
+        SceneManager.LoadScene(nextSceneIndex);
+    }
+}

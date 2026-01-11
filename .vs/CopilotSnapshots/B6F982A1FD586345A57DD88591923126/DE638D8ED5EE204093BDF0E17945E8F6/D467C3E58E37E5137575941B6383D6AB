@@ -1,0 +1,50 @@
+﻿using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class Movement : MonoBehaviour
+{
+    Rigidbody rb;
+    
+    [SerializeField] float thrustForce = 1000f;
+    [SerializeField] float rotationSpeed = 100f;
+    
+    // Start is called before the first frame update
+  void Start()
+    {
+        rb = GetComponent<Rigidbody>();
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        ProcessThrust();
+        ProcessRotation();
+    }
+
+    void ProcessThrust()
+ {
+ if (Input.GetKey(KeyCode.Space))
+        {
+   // 沿着火箭的前方向（局部Z轴正方向）施加推力
+      rb.AddRelativeForce(Vector3.up * thrustForce);
+        }
+    }
+
+    void ProcessRotation()
+    {
+        // A键：绕Z轴旋转（左倾斜）
+    if (Input.GetKey(KeyCode.A))
+        {
+  rb.AddRelativeTorque(-Vector3.forward * rotationSpeed);
+       Debug.Log("Rotating left");
+        }
+
+   // D键：绕Z轴旋转（右倾斜）
+    if (Input.GetKey(KeyCode.D))
+      {
+            rb.AddRelativeTorque(Vector3.forward * rotationSpeed);
+            Debug.Log("Rotating right");
+}
+    }
+}

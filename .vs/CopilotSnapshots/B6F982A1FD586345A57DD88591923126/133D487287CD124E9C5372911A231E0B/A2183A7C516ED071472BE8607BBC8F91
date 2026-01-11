@@ -1,0 +1,74 @@
+﻿using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class Movement : MonoBehaviour
+{
+    Rigidbody rb;
+    
+    [SerializeField] float thrustForce = 7f;
+    [SerializeField] float rotationSpeed = 0.1f;
+    [SerializeField] float stabilizationForce = 5f;  // 稳定辅助强度
+    [SerializeField] float maxTiltAngle = 45f;       // 最大倾斜角度
+    
+    // Start is called before the first frame update
+    void Start()
+    {
+        rb = GetComponent<Rigidbody>();
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        ProcessThrust();
+        ProcessRotation();
+        ApplyStabilization();  // 持续应用稳定系统
+    }
+
+    void ProcessThrust()
+{
+        if (Input.GetKey(KeyCode.Space))
+        {
+         // 沿着火箭的前方向（局部Z轴正方向）施加推力
+    rb.AddRelativeForce(Vector3.up * thrustForce);
+        }
+    }
+
+  void ProcessRotation()
+    {
+        // A键：绕Z轴旋转（左倾斜）
+        if (Input.GetKey(KeyCode.A))
+     {
+        rb.AddRelativeTorque(-Vector3.forward * rotationSpeed);
+ Debug.Log("Rotating left");
+ }
+
+   // D键：绕Z轴旋转（右倾斜）
+ if (Input.GetKey(KeyCode.D))
+        {
+       rb.AddRelativeTorque(Vector3.forward * rotationSpeed);
+        Debug.Log("Rotating right");
+    }
+    }
+
+    void ApplyStabilization()
+ {
+    // 获取火箭当前的旋转状态
+    Vector3 currentRight = rb.transform.right;
+        Vector3 worldRight = Vector3.right;
+     
+    // 计算与水平面的偏离程度（只考虑X轴倾斜）
+        float tiltAngle = Vector3.Angle(rb.transform.up, Vector3.up);
+        
+        // 如果倾斜超过最大角度，自动恢复平衡
+        if (tiltAngle > maxTiltAngle)
+        {
+  // 计算需要的恢复力（轻微回正）
+            Vector3 stabilizeAxis = Vector3.Cross(rb.transform.up, Vector3.up);
+            rb.AddTorque(stabilizeAxis.normalized * stabilizationForce * 0.5f);
+        }
+    
+        // 轻微阻尼效果：减少旋转速度，让飞行更平稳
+        rb.angularVelocity *= 0.98f;
+    }
+}

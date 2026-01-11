@@ -1,0 +1,58 @@
+﻿using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class CamaraFollow : MonoBehaviour
+{
+    [SerializeField] Transform target;// 要跟随的目标（火箭）
+    [SerializeField] float followHeight = 3f;    // 摄像机在火箭上方的高度
+    [SerializeField] float smoothSpeed = 5f;     // 摄像机跟随的平滑度（越大越快）
+    [SerializeField] float lookAheadDistance = 2f; // 摄像机看向火箭前方的距离
+    
+    [SerializeField] float baseDistance = 5f;    // 基础距离（静止时）
+    [SerializeField] float speedToDistanceMultiplier = 1.5f; // 速度转换为距离的系数（无上限）
+    [SerializeField] float distanceSmoothSpeed = 2f; // 距离平滑度（越高越柔和）
+ 
+    private Rigidbody targetRb;
+    private float currentDistance;
+
+    void Start()
+    {
+        if (target == null)
+        {
+            target = FindObjectOfType<Movement>().transform;
+        }
+    
+        if (target != null)
+        {
+            targetRb = target.GetComponent<Rigidbody>();
+        }
+        
+        currentDistance = baseDistance;
+    }
+
+    void LateUpdate()
+    {
+        if (target == null) return;
+    
+        // 计算当前火箭的速度
+        float currentSpeed = targetRb != null ? targetRb.velocity.magnitude : 0f;
+        
+        // 根据速度计算目标距离（无上限，速度越快距离越远）
+        float targetDistance = baseDistance + (currentSpeed * speedToDistanceMultiplier);
+  
+        // 平滑过渡距离（高平滑度，让距离变化非常柔和）
+        currentDistance = Mathf.Lerp(currentDistance, targetDistance, Time.deltaTime * distanceSmoothSpeed);
+        
+        // 计算摄像机的目标位置
+        Vector3 dynamicOffset = new Vector3(0, followHeight, currentDistance);
+        Vector3 desiredPosition = target.position + target.TransformDirection(dynamicOffset);
+        
+        // 平滑移动到目标位置
+        transform.position = Vector3.Lerp(transform.position, desiredPosition, Time.deltaTime * smoothSpeed);
+ 
+        // 摄像机看向火箭前方（反向），创建更好的视角效果
+        Vector3 lookAtTarget = target.position - target.forward * lookAheadDistance + Vector3.up * (followHeight * 0.5f);
+        transform.LookAt(lookAtTarget);
+    }
+}

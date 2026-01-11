@@ -1,0 +1,105 @@
+﻿using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+public class CollisionHandler : MonoBehaviour
+{
+    [SerializeField] float levelLoadDelay = 2f;
+    [SerializeField] float maxBankAngle = 50f;       // 最大允许倾斜角度（超过则坠毁）
+    [SerializeField] float maxAcceleration = 100f;       // 最大允许瞬间加速度（超过则坠毁）
+    
+    private Rigidbody rb;
+    private Vector3 lastVelocity;
+    private bool isCrashed = false;
+
+    void Start()
+    {
+        rb = GetComponent<Rigidbody>();
+        lastVelocity = rb.velocity;
+    }
+
+    void Update()
+    {
+        // 每帧检测坠毁条件
+        if (!isCrashed)
+        {
+            CheckCrashConditions();
+        }
+    }
+
+    void OnCollisionEnter(Collision collision)
+    {
+        switch (collision.gameObject.tag)
+        {
+            case "Friendly":
+                Debug.Log("Friendly"); 
+                break;
+            case "Finish":
+                HandleFinish();
+                break;
+            default:
+                TriggerCrash("Collision");
+                break;
+        }
+    }
+
+    void CheckCrashConditions()
+    {
+        // 检查倾斜角度
+        float bankAngle = Vector3.Angle(rb.transform.up, Vector3.up);
+        if (bankAngle > maxBankAngle)
+        {
+            TriggerCrash($"Bank Angle Exceeded: {bankAngle:F1}°");
+            return;
+        }
+
+        // 检查瞬间加速度（加速度 = 速度变化 / 时间）
+        Vector3 acceleration = (rb.velocity - lastVelocity) / Time.deltaTime;
+        float accelerationMagnitude = acceleration.magnitude;
+        
+        if (accelerationMagnitude > maxAcceleration)
+        {
+            TriggerCrash($"Excessive Acceleration: {accelerationMagnitude:F1} m/s²");
+            return;
+        }
+
+        lastVelocity = rb.velocity;
+    }
+
+    void TriggerCrash(string crashReason)
+    {
+        isCrashed = true;
+        Debug.Log($"Crash detected: {crashReason}");
+        StartCrashSequence();
+    }
+
+    void StartCrashSequence()
+    {
+        GetComponent<AudioSource>().enabled = false;
+        Invoke("Respawn", levelLoadDelay);
+    }
+
+    void Respawn()
+    {
+        int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
+        SceneManager.LoadScene(currentSceneIndex);
+    }
+
+    void HandleFinish()
+    {
+        Debug.Log("Finish");
+        Invoke("NextLevel", levelLoadDelay);
+    }
+
+    void NextLevel()
+    {
+        int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
+        int nextSceneIndex = currentSceneIndex + 1;
+        if (nextSceneIndex == SceneManager.sceneCountInBuildSettings)
+        {
+            nextSceneIndex = 0;
+        }
+        SceneManager.LoadScene(nextSceneIndex);
+    }
+}

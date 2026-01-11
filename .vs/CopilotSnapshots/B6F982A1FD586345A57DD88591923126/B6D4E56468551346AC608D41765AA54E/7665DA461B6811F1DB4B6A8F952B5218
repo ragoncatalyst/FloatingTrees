@@ -1,0 +1,40 @@
+﻿using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class CamaraFollow : MonoBehaviour
+{
+    [SerializeField] Transform target;// 要跟随的目标（火箭）
+    [SerializeField] float followDistance = 8f;  // 摄像机距离火箭的距离
+    [SerializeField] float followHeight = 3f;    // 摄像机在火箭上方的高度
+    [SerializeField] float smoothSpeed = 5f;     // 摄像机跟随的平滑度（越大越快）
+    [SerializeField] float lookAheadDistance = 2f; // 摄像机看向火箭前方的距离
+    
+    private Vector3 offset;  // 摄像机相对于火箭的偏移量
+
+    void Start()
+    {
+        if (target == null)
+{
+       target = FindObjectOfType<Movement>().transform;
+   }
+        
+    // 初始化偏移量
+        offset = new Vector3(0, followHeight, -followDistance);
+    }
+
+    void LateUpdate()
+    {
+        if (target == null) return;
+        
+ // 计算摄像机的目标位置（火箭后方上方）
+     Vector3 desiredPosition = target.position + target.TransformDirection(offset);
+        
+        // 平滑移动到目标位置
+        transform.position = Vector3.Lerp(transform.position, desiredPosition, Time.deltaTime * smoothSpeed);
+ 
+        // 摄像机看向火箭前方（而不是火箭中心），创建更好的视角效果
+        Vector3 lookAtTarget = target.position + target.forward * lookAheadDistance + Vector3.up * (followHeight * 0.5f);
+     transform.LookAt(lookAtTarget);
+    }
+}

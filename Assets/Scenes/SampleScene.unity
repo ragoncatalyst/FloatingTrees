@@ -2690,7 +2690,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5096602361105759905, guid: 563418766deb1492b816cde06401b7c8, type: 3}
       propertyPath: rotationThrust
-      value: 50
+      value: 100
       objectReference: {fileID: 0}
     - target: {fileID: 5096602361105759905, guid: 563418766deb1492b816cde06401b7c8, type: 3}
       propertyPath: explosionForceMultiplier

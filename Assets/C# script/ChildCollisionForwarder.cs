@@ -2,12 +2,41 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-// 该脚本已弃用 - 使用简单架构，父物体直接处理碰撞
+// 将子方块的碰撞事件转发给父物体
 public class ChildCollisionForwarder : MonoBehaviour
 {
-    void Start()
+    private GameObject parentObject;
+    
+    // 设置父物体
+    public void SetParent(GameObject parent)
     {
-        // 移除此组件（因为现在不需要）
-        Destroy(this);
+        parentObject = parent;
+    }
+    
+    void OnCollisionEnter(Collision collision)
+    {
+        // 转发碰撞事件给父物体
+        if (parentObject != null)
+        {
+            parentObject.SendMessage("OnCollisionEnter", collision, SendMessageOptions.DontRequireReceiver);
+        }
+    }
+    
+    void OnCollisionStay(Collision collision)
+    {
+        // 转发持续碰撞事件给父物体
+        if (parentObject != null)
+        {
+            parentObject.SendMessage("OnCollisionStay", collision, SendMessageOptions.DontRequireReceiver);
+        }
+    }
+    
+    void OnCollisionExit(Collision collision)
+    {
+        // 转发碰撞退出事件给父物体
+        if (parentObject != null)
+        {
+            parentObject.SendMessage("OnCollisionExit", collision, SendMessageOptions.DontRequireReceiver);
+        }
     }
 }

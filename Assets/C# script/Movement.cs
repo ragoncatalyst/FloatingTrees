@@ -26,6 +26,7 @@ public class Movement : MonoBehaviour
     private Vector3[] initialLocalPositions;              // 初始相对位置
     private Quaternion[] initialLocalRotations;           // 初始相对旋转
     private AudioSource myAudioSource;
+    private Camera mainCamera;                            // 主摄像头（用于计算旋转轴）
     
     // 输入状态缓存
     private bool isThrustingThisFrame;
@@ -46,13 +47,14 @@ public class Movement : MonoBehaviour
             return;
         }
         
-        // 获取所有直接子物体（不获取Rigidbody，因为子物体不需要有）
-        Transform[] allChildren = GetComponentsInChildren<Transform>();
+        // 获取所有子物体中有Renderer的方块（排除空的Layer容器）
+        Renderer[] allRenderers = GetComponentsInChildren<Renderer>();
         List<Transform> childTransforms = new List<Transform>();
         
-        foreach (Transform child in allChildren)
+        foreach (Renderer renderer in allRenderers)
         {
-            if (child != transform)  // 排除父物体本身
+            Transform child = renderer.transform;
+            if (child != transform && !childTransforms.Contains(child))  // 排除父物体本身，避免重复
             {
                 childTransforms.Add(child);
             }
@@ -75,51 +77,39 @@ public class Movement : MonoBehaviour
                 Debug.LogWarning($"Child '{childTransforms[i].name}' has a Rigidbody which is not needed before explosion!");
             }
             
-            // 移除子物体的所有Collider（避免干扰父物体碰撞）
-            Collider[] childColliders = childTransforms[i].GetComponents<Collider>();
-            foreach (Collider col in childColliders)
+            // 确保每个方块都有Collider
+            BoxCollider childCollider = childTransforms[i].GetComponent<BoxCollider>();
+            if (childCollider == null)
             {
-                Destroy(col);
-                Debug.Log($"<color=red>★ Removed Collider from child '{childTransforms[i].name}'</color>");
+                childCollider = childTransforms[i].gameObject.AddComponent<BoxCollider>();
+                Debug.Log($"<color=green>★ Added BoxCollider to '{childTransforms[i].name}'</color>");
+            }
+            
+            // 添加碰撞转发器，将碰撞事件转发给父物体
+            ChildCollisionForwarder forwarder = childTransforms[i].GetComponent<ChildCollisionForwarder>();
+            if (forwarder == null)
+            {
+                forwarder = childTransforms[i].gameObject.AddComponent<ChildCollisionForwarder>();
+                forwarder.SetParent(this.gameObject);
+                Debug.Log($"<color=green>★ Added ChildCollisionForwarder to '{childTransforms[i].name}'</color>");
             }
         }
         
         myAudioSource = GetComponent<AudioSource>();
         
-        // 确保父物体有一个Collider来产生物理碰撞
+        // 获取主摄像头（用于计算旋转轴）
+        mainCamera = Camera.main;
+        if (mainCamera == null)
+        {
+            Debug.LogWarning("未找到主摄像头，将使用默认旋转轴");
+        }
+        
+        // 父物体不需要Collider，碰撞由子方块处理
         Collider parentCollider = GetComponent<Collider>();
-        if (parentCollider == null)
+        if (parentCollider != null)
         {
-            // 添加一个BoxCollider给父物体（用于物理碰撞）
-            BoxCollider boxCollider = gameObject.AddComponent<BoxCollider>();
-            boxCollider.isTrigger = false;  // 不是Trigger，产生真实碰撞
-            
-            // 计算包含所有子物体的边界
-            Bounds bounds = new Bounds(transform.position, Vector3.zero);
-            foreach (Transform child in childTransforms)
-            {
-                Renderer renderer = child.GetComponent<Renderer>();
-                if (renderer != null)
-                {
-                    bounds.Encapsulate(renderer.bounds);
-                }
-            }
-            
-            // 设置Collider大小和位置
-            boxCollider.center = bounds.center - transform.position;
-            boxCollider.size = bounds.size;
-            
-            Debug.Log($"<color=green>★ Added BoxCollider to parent 'Rocket' for physics collision</color>");
-            Debug.Log($"<color=green>  - Center: {boxCollider.center}, Size: {boxCollider.size}</color>");
-        }
-        else if (parentCollider.isTrigger)
-        {
-            parentCollider.isTrigger = false;
-            Debug.Log($"<color=green>★ Set parent Collider to non-Trigger for physics collision</color>");
-        }
-        else
-        {
-            Debug.Log($"<color=green>★ Parent already has non-Trigger Collider: {parentCollider.GetType().Name}</color>");
+            Destroy(parentCollider);
+            Debug.Log($"<color=yellow>★ Removed parent Collider - using individual block colliders instead</color>");
         }
         
         // 验证Rigidbody配置
@@ -130,15 +120,11 @@ public class Movement : MonoBehaviour
         
         if (childTransforms.Count == 0)
         {
-            Debug.LogError("No child objects found!");
+            Debug.LogError("No block objects found! Make sure your rocket has visible blocks with Renderers.");
         }
         else
         {
-            Debug.Log($"<color=green>★ Found {childTransforms.Count} child objects</color>");
-        }
-        if (childRigidbodies.Length == 0)
-        {
-            Debug.LogError("No child Rigidbodies found! Make sure child cubes have Rigidbody components.");
+            Debug.Log($"<color=green>★ Found {childTransforms.Count} block objects (5x5x5 structure support)</color>");
         }
     }
 
@@ -156,19 +142,26 @@ public class Movement : MonoBehaviour
         SynchronizeChildRigidbodies();  // 同步所有子物体，保持粘合状态
     }
     
-    // 同步所有子物体位置和旋转（保持粘合状态）
-    // 子物体跟随父物体的transform
+    // 同步所有方块位置和旋转（保持粘合状态）
+    // 只同步实际方块，不修改Layer容器
     void SynchronizeChildRigidbodies()
     {
         // 如果爆炸已发生（childRigidbodies被清空），停止同步
         if (childRigidbodies.Length == 0) return;
         
-        // 确保所有子物体保持初始相对位置和旋转
-        for (int i = 0; i < transform.childCount && i < initialLocalPositions.Length; i++)
+        // 获取所有方块并确保它们保持初始相对位置和旋转
+        Renderer[] allRenderers = GetComponentsInChildren<Renderer>();
+        int index = 0;
+        
+        foreach (Renderer renderer in allRenderers)
         {
-            Transform child = transform.GetChild(i);
-            child.localPosition = initialLocalPositions[i];
-            child.localRotation = initialLocalRotations[i];
+            Transform child = renderer.transform;
+            if (child != transform && index < initialLocalPositions.Length)
+            {
+                child.localPosition = initialLocalPositions[index];
+                child.localRotation = initialLocalRotations[index];
+                index++;
+            }
         }
     }
 
@@ -262,17 +255,51 @@ public class Movement : MonoBehaviour
     {
         if (parentRigidbody == null) return;
         
-        // A键控制左转
+        // 计算基于摄像头视角的旋转轴
+        Vector3 rotationAxis = CalculateCameraBasedRotationAxis();
+        
+        // A键控制左转（逆时针）
         if (isRotatingLeftThisFrame)
         {
-            parentRigidbody.AddRelativeTorque(Vector3.forward * rotationThrust);
+            parentRigidbody.AddTorque(rotationAxis * rotationThrust);
         }
 
-        // D键控制右转
+        // D键控制右转（顺时针）
         if (isRotatingRightThisFrame)
         {
-            parentRigidbody.AddRelativeTorque(-Vector3.forward * rotationThrust);
+            parentRigidbody.AddTorque(-rotationAxis * rotationThrust);
         }
+    }
+    
+    // 计算基于摄像头视角的旋转轴
+    // 这个轴垂直于摄像头视平面，但与世界的XZ平面平行
+    Vector3 CalculateCameraBasedRotationAxis()
+    {
+        // 如果没有摄像头，使用默认旋转轴（火箭的forward轴）
+        if (mainCamera == null)
+        {
+            return transform.forward;
+        }
+        
+        // 获取摄像头的右向量（right向量）
+        // 这个向量垂直于摄像头的视线和上方向
+        Vector3 cameraRight = mainCamera.transform.right;
+        
+        // 将这个向量投影到XZ平面（去掉Y分量）
+        Vector3 rotationAxis = new Vector3(cameraRight.x, 0f, cameraRight.z);
+        
+        // 归一化以确保力矩大小一致
+        if (rotationAxis.magnitude > 0.01f)
+        {
+            rotationAxis.Normalize();
+        }
+        else
+        {
+            // 如果摄像头直接从上方或下方看，使用世界的X轴作为旋转轴
+            rotationAxis = Vector3.right;
+        }
+        
+        return rotationAxis;
     }
     
     // 公共方法：供其他类调用，检查玩家是否操控过火箭
@@ -300,10 +327,12 @@ public class Movement : MonoBehaviour
             Debug.Log("★ Parent Rigidbody set to kinematic");
         }
         
-        // 为每个子方块添加物理组件并施加爆炸力
-        for (int i = 0; i < transform.childCount; i++)
+        // 为每个可见方块添加物理组件并施加爆炸力（只处理有Renderer的方块）
+        Renderer[] renderers = GetComponentsInChildren<Renderer>();
+        foreach (Renderer renderer in renderers)
         {
-            Transform child = transform.GetChild(i);
+            Transform child = renderer.transform;
+            if (child == transform) continue;  // 跳过父物体本身
             
             // 添加Rigidbody
             Rigidbody childRb = child.GetComponent<Rigidbody>();
@@ -386,6 +415,6 @@ public class Movement : MonoBehaviour
         // 停止同步子物体（不再调用SynchronizeChildRigidbodies）
         childRigidbodies = new Rigidbody[0];
         
-        Debug.Log("<color=red>★★★ EXPLOSION COMPLETE! ★★★</color>");
+        Debug.Log($"<color=red>★★★ EXPLOSION COMPLETE! {renderers.Length} blocks scattered! ★★★</color>");
     }
 }

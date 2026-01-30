@@ -6,14 +6,12 @@ using UnityEngine;
 public class Movement : MonoBehaviour
 {
     [Header("Movement Settings")]
-    [SerializeField] float mainThrust = 100f;
-    [SerializeField] float rotationThrust = 10f;          // 旋转力矩
-    [SerializeField] AudioClip mainEngine;
+    [SerializeField] private float mainThrust = 100f;            // 主推进力
+    [SerializeField] private float horizontalMoveForce = 50f;   // 水平移动力
+    [SerializeField] private AudioClip mainEngine;
     
     [Header("Particle Effects")]
-    [SerializeField] ParticleSystem mainEngineParticles;
-    [SerializeField] ParticleSystem leftThrusterParticle;
-    [SerializeField] ParticleSystem rightThrusterParticle;
+    [SerializeField] private ParticleSystem mainEngineParticles;
     
     [Header("Explosion Settings")]
     [SerializeField] float explosionForceMultiplier = 50f;  // 爆炸力系数（力 = 速度 × 系数）
@@ -26,12 +24,14 @@ public class Movement : MonoBehaviour
     private Vector3[] initialLocalPositions;              // 初始相对位置
     private Quaternion[] initialLocalRotations;           // 初始相对旋转
     private AudioSource myAudioSource;
-    private Camera mainCamera;                            // 主摄像头（用于计算旋转轴）
+    private CamaraFollow cameraFollow;                    // 摄像头脚本（用于获取当前角度）
     
     // 输入状态缓存
     private bool isThrustingThisFrame;
-    private bool isRotatingLeftThisFrame;
-    private bool isRotatingRightThisFrame;
+    private bool isMovingForward;
+    private bool isMovingBack;
+    private bool isMovingLeft;
+    private bool isMovingRight;
     
     // 追踪玩家是否操控过火箭
     private bool hasPlayerControlled = false;
@@ -39,6 +39,21 @@ public class Movement : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        // 验证并修正参数
+        if (mainThrust <= 0)
+        {
+            mainThrust = 100f;
+            Debug.LogWarning("[Movement] mainThrust未设置，使用默认值100");
+        }
+        
+        if (horizontalMoveForce <= 0)
+        {
+            horizontalMoveForce = 50f;
+            Debug.LogWarning("[Movement] horizontalMoveForce未设置，使用默认值50");
+        }
+        
+        Debug.Log($"[Movement] 参数已初始化 - mainThrust:{mainThrust}, horizontalMoveForce:{horizontalMoveForce}");
+        
         // 获取父物体的Rigidbody（必须存在）
         parentRigidbody = GetComponent<Rigidbody>();
         if (parentRigidbody == null)
@@ -97,11 +112,11 @@ public class Movement : MonoBehaviour
         
         myAudioSource = GetComponent<AudioSource>();
         
-        // 获取主摄像头（用于计算旋转轴）
-        mainCamera = Camera.main;
-        if (mainCamera == null)
+        // 获取摄像头脚本（用于获取当前角度索引）
+        cameraFollow = Camera.main?.GetComponent<CamaraFollow>();
+        if (cameraFollow == null)
         {
-            Debug.LogWarning("未找到主摄像头，将使用默认旋转轴");
+            Debug.LogWarning("未找到CamaraFollow脚本，WASD移动将使用默认方向");
         }
         
         // 父物体不需要Collider，碰撞由子方块处理
@@ -138,7 +153,7 @@ public class Movement : MonoBehaviour
     void FixedUpdate()
     {
         ProcessThrust();
-        ProcessRotation();
+        ProcessHorizontalMovement();
         SynchronizeChildRigidbodies();  // 同步所有子物体，保持粘合状态
     }
     
@@ -169,11 +184,13 @@ public class Movement : MonoBehaviour
     {
         // 缓存输入状态
         isThrustingThisFrame = Input.GetKey(KeyCode.Space);
-        isRotatingLeftThisFrame = Input.GetKey(KeyCode.A);
-        isRotatingRightThisFrame = Input.GetKey(KeyCode.D);
+        isMovingForward = Input.GetKey(KeyCode.W);
+        isMovingBack = Input.GetKey(KeyCode.S);
+        isMovingLeft = Input.GetKey(KeyCode.A);
+        isMovingRight = Input.GetKey(KeyCode.D);
         
         // 标记玩家是否操控过火箭
-        if (isThrustingThisFrame || isRotatingLeftThisFrame || isRotatingRightThisFrame)
+        if (isThrustingThisFrame || isMovingForward || isMovingBack || isMovingLeft || isMovingRight)
         {
             hasPlayerControlled = true;
         }
@@ -205,38 +222,6 @@ public class Movement : MonoBehaviour
                 mainEngineParticles.Stop();
             }
         }
-
-        // 处理左推进器粒子
-        if (isRotatingLeftThisFrame)
-        {
-            if (leftThrusterParticle != null && !leftThrusterParticle.isPlaying)
-            {
-                leftThrusterParticle.Play();
-            }
-        }
-        else
-        {
-            if (leftThrusterParticle != null)
-            {
-                leftThrusterParticle.Stop();
-            }
-        }
-
-        // 处理右推进器粒子
-        if (isRotatingRightThisFrame)
-        {
-            if (rightThrusterParticle != null && !rightThrusterParticle.isPlaying)
-            {
-                rightThrusterParticle.Play();
-            }
-        }
-        else
-        {
-            if (rightThrusterParticle != null)
-            {
-                rightThrusterParticle.Stop();
-            }
-        }
     }
 
     void ProcessThrust()
@@ -251,54 +236,70 @@ public class Movement : MonoBehaviour
         }
     }
 
-    void ProcessRotation()
+    void ProcessHorizontalMovement()
     {
-        if (parentRigidbody == null) return;
-        
-        // 计算基于摄像头视角的旋转轴
-        Vector3 rotationAxis = CalculateCameraBasedRotationAxis();
-        
-        // A键控制左转
-        if (isRotatingLeftThisFrame)
+        if (parentRigidbody == null)
         {
-            parentRigidbody.AddTorque(rotationAxis * rotationThrust);
-        }
-
-        // D键控制右转
-        if (isRotatingRightThisFrame)
-        {
-            parentRigidbody.AddTorque(-rotationAxis * rotationThrust);
-        }
-    }
-    
-    // 计算基于摄像头视角的旋转轴
-    // 直接使用从摄像头到火箭的方向作为旋转轴
-    Vector3 CalculateCameraBasedRotationAxis()
-    {
-        // 如果没有摄像头，使用默认旋转轴（火箭的forward轴）
-        if (mainCamera == null)
-        {
-            return transform.forward;
+            Debug.LogError("[Movement] parentRigidbody为null！");
+            return;
         }
         
-        // 计算从摄像头指向火箭的方向向量
-        Vector3 rotationAxis = transform.position - mainCamera.transform.position;
+        // 检查是否有WASD输入
+        bool hasMovementInput = isMovingForward || isMovingBack || isMovingLeft || isMovingRight;
         
-        // 归一化以确保力矩大小一致
-        if (rotationAxis.magnitude > 0.01f)
+        // 获取摄像头角度索引
+        int angleIndex = cameraFollow != null ? cameraFollow.GetCurrentAngleIndex() : 0;
+        
+        // 根据角度索引和WASD输入计算移动方向（世界坐标系）
+        Vector3 moveDirection = Vector3.zero;
+        
+        switch (angleIndex)
         {
-            rotationAxis.Normalize();
+            case 0: // 0°视角
+                if (isMovingForward) moveDirection.z += 1f;
+                if (isMovingBack) moveDirection.z -= 1f;
+                if (isMovingLeft) moveDirection.x -= 1f;
+                if (isMovingRight) moveDirection.x += 1f;
+                break;
+                
+            case 1: // 90°视角
+                if (isMovingForward) moveDirection.x += 1f;
+                if (isMovingBack) moveDirection.x -= 1f;
+                if (isMovingLeft) moveDirection.z += 1f;
+                if (isMovingRight) moveDirection.z -= 1f;
+                break;
+                
+            case 2: // 180°视角
+                if (isMovingForward) moveDirection.z -= 1f;
+                if (isMovingBack) moveDirection.z += 1f;
+                if (isMovingLeft) moveDirection.x += 1f;
+                if (isMovingRight) moveDirection.x -= 1f;
+                break;
+                
+            case 3: // 270°视角
+                if (isMovingForward) moveDirection.x -= 1f;
+                if (isMovingBack) moveDirection.x += 1f;
+                if (isMovingLeft) moveDirection.z -= 1f;
+                if (isMovingRight) moveDirection.z += 1f;
+                break;
+        }
+        
+        // 施加水平移动力
+        if (moveDirection.sqrMagnitude > 0.01f)
+        {
+            Vector3 force = moveDirection.normalized * horizontalMoveForce;
+            parentRigidbody.AddForce(force, ForceMode.Force);
             
-            // 可视化旋转轴（红色）
-            Debug.DrawRay(transform.position, rotationAxis * 5f, Color.red);
-            Debug.DrawRay(transform.position, -rotationAxis * 5f, Color.red);
+            // 每秒打印一次调试信息
+            if (Time.frameCount % 60 == 0)
+            {
+                Debug.Log($"<color=green>[Movement] 施加水平力 - 角度:{angleIndex} | 方向:{moveDirection.normalized} | 力度:{horizontalMoveForce} | 总力:{force}</color>");
+            }
         }
-        else
+        else if (hasMovementInput && Time.frameCount % 60 == 0)
         {
-            rotationAxis = Vector3.forward;
+            Debug.LogWarning($"[Movement] 检测到WASD输入但moveDirection为0 - W:{isMovingForward} S:{isMovingBack} A:{isMovingLeft} D:{isMovingRight}");
         }
-        
-        return rotationAxis;
     }
     
     // 公共方法：供其他类调用，检查玩家是否操控过火箭

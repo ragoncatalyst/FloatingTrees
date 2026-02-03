@@ -11,8 +11,6 @@ public class CamaraFollow : MonoBehaviour
     [SerializeField] private float minDistance = 10f;               // 最小距离
     [SerializeField] private float maxDistance = 30f;               // 最大距离
     [SerializeField] private float scrollSensitivity = 2f;          // 滚轮灵敏度
-    [SerializeField] private float distanceReturnSpeed = 3f;        // 距离归位基础速度
-    [SerializeField] private float maxDistanceReturnSpeed = 10f;    // 距离归位最大速度
     [SerializeField] private float rotationTransitionTime = 0.3f;   // 角度切换过渡时间
     [SerializeField] private float waitListTimeout = 0.2f;          // 等待列表超时时间（秒）
     
@@ -160,16 +158,6 @@ public class CamaraFollow : MonoBehaviour
         {
             currentDistance -= scroll * scrollSensitivity;
             currentDistance = Mathf.Clamp(currentDistance, minDistance, maxDistance);
-        }
-        
-        // 距离自动归位到基准值（与基准距离差异越大，速度越快）
-        if (Mathf.Abs(currentDistance - baseDistance) > 0.1f)
-        {
-            float distanceDiff = Mathf.Abs(currentDistance - baseDistance);
-            float normalizedDiff = distanceDiff / (maxDistance - baseDistance);
-            float returnSpeed = Mathf.Lerp(distanceReturnSpeed, maxDistanceReturnSpeed, normalizedDiff);
-            
-            currentDistance = Mathf.MoveTowards(currentDistance, baseDistance, returnSpeed * Time.deltaTime);
         }
     }
     

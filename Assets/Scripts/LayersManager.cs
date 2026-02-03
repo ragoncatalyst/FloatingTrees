@@ -115,7 +115,7 @@ public class LayersManager : MonoBehaviour
         }
         else
         {
-            // 第一次按下：其他层50%透明
+            // 第一次按下：其他层10%透明（几乎完全透明）
             Debug.Log($"[LayersManager] 按下Layer{layerIndex}，其他层级半透明");
             SetLayerTransparency(layerIndex, 1.0f); // 当前层保持不透明
             
@@ -123,7 +123,7 @@ public class LayersManager : MonoBehaviour
             {
                 if (i != layerIndex && layerObjects.ContainsKey(i))
                 {
-                    SetLayerTransparency(i, 0.5f); // 其他层50%透明
+                    SetLayerTransparency(i, 0.1f); // 其他层10%透明
                 }
             }
         }

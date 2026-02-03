@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using TMPro;
@@ -9,12 +8,9 @@ public class Resulting : MonoBehaviour
 {
     [Header("UI References")]
     [SerializeField] TextMeshProUGUI victoryText;         // 胜利文本
-    [SerializeField] TextMeshProUGUI defeatText;          // 失败文本
-    [SerializeField] TextMeshProUGUI defeatCommentText;   // 失败评语文本
     
-    [Header("Victory/Defeat Settings")]
+    [Header("Victory Settings")]
     [SerializeField] float levelLoadDelay = 3f;           // 场景加载延迟
-    [SerializeField] TextAsset failureCommentsFile;       // 失败评语文件
     [SerializeField] float maxLandingSpeed = 5f;          // 最大安全着陆速度（与CollisionHandler同步）
     [SerializeField] float stopConfirmationTime = 0.8f;   // 需要保持静止的时间（秒）
     [SerializeField] float stoppedThreshold = 0.1f;       // 判定为停止的速度阈值
@@ -28,7 +24,6 @@ public class Resulting : MonoBehaviour
     private Movement movementController;                  // 用于检查玩家是否操控过
     private float stoppedTime = 0f;                       // 速度为0持续的时间
     private bool hasDetectedStop = false;                 // 是否已经检测到速度变为0
-    private Dictionary<string, List<string>> failureComments = new Dictionary<string, List<string>>();  // 失败评语字典
 
     void Start()
     {
@@ -45,77 +40,16 @@ public class Resulting : MonoBehaviour
             collisionHandler.OnCrash += HandleCrash;
         }
         
-        // 初始化时隐藏所有文本
+        // 初始化时隐藏胜利文本
         if (victoryText != null)
         {
             victoryText.gameObject.SetActive(false);
-        }
-        if (defeatText != null)
-        {
-            defeatText.gameObject.SetActive(false);
-        }
-        if (defeatCommentText != null)
-        {
-            defeatCommentText.gameObject.SetActive(false);
         }
         
         lastFrameSpeed = 0f;
         hasEverHadVelocity = false;
         
-        // 加载失败评语
-        LoadFailureComments();
-        
         Debug.Log("Resulting system initialized");
-    }
-    
-    void LoadFailureComments()
-    {
-        if (failureCommentsFile == null)
-        {
-            Debug.LogError("Failure comments file not assigned!");
-            return;
-        }
-        
-        string[] lines = failureCommentsFile.text.Split(new[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
-        string currentCategory = "";
-        
-        foreach (string line in lines)
-        {
-            string trimmedLine = line.Trim();
-            
-            // 跳过空行和注释行
-            if (string.IsNullOrEmpty(trimmedLine) || trimmedLine.StartsWith("#"))
-                continue;
-            
-            // 检查是否是新类别（格式: 00_1 "content"）
-            if (trimmedLine.Contains(" \""))
-            {
-                int spaceIndex = trimmedLine.IndexOf(' ');
-                string key = trimmedLine.Substring(0, spaceIndex);
-                string category = key.Substring(0, 2);  // 提取前两位（如"00"、"01"等）
-                
-                // 如果是新类别，初始化列表
-                if (category != currentCategory)
-                {
-                    if (!failureComments.ContainsKey(category))
-                    {
-                        failureComments[category] = new List<string>();
-                    }
-                    currentCategory = category;
-                }
-                
-                // 提取引号内的内容
-                int startQuote = trimmedLine.IndexOf('"');
-                int endQuote = trimmedLine.LastIndexOf('"');
-                if (startQuote != -1 && endQuote != -1 && endQuote > startQuote)
-                {
-                    string comment = trimmedLine.Substring(startQuote + 1, endQuote - startQuote - 1);
-                    failureComments[currentCategory].Add(comment);
-                }
-            }
-        }
-        
-        Debug.Log($"Loaded {failureComments.Count} failure comment categories");
     }
 
     void OnDestroy()
@@ -127,13 +61,14 @@ public class Resulting : MonoBehaviour
         }
     }
 
-    // 处理超速撞击（由CollisionHandler触发）
+    // 处理撞击 - 直接爆炸
     void HandleCrash(string crashReason)
     {
         if (hasResult) return;  // 如果已经有结果，不再处理
         
-        Debug.Log($"<color=red>★★★ HandleCrash called with reason: {crashReason}</color>");
-        TriggerDefeat(crashReason);
+        Debug.Log($"<color=red>★★★ HandleCrash called - EXPLOSION! ★★★</color>");
+        // 任何碰撞都直接爆炸，由CollisionHandler处理爆炸效果
+        hasResult = true;
     }
 
     void FixedUpdate()
@@ -300,69 +235,10 @@ public class Resulting : MonoBehaviour
         }
         else
         {
-            Debug.Log($"<color=red>Victory conditions NOT met: LandingPads={landingPads.Count}, HasFinish={landingPadHasFinish}, LaunchingPads={launchingPads.Count}, Others={otherObjects.Count}</color>");
-            // 失败判定
-            DeterminFailureType(launchingPads.Count > 0, landingPads.Count > 0, otherObjects.Count > 0, lastFrameSpeed > maxLandingSpeed);
+            // 不符合胜利条件 - 触发爆炸
+            Debug.Log($"<color=red>Victory conditions NOT met - EXPLOSION!</color>");
+            TriggerExplosion();
         }
-    }
-    
-    void DeterminFailureType(bool hasLaunchingPad, bool hasLandingPad, bool hasOtherObjects, bool wasExcessiveSpeed)
-    {
-        string failureCategory = "00";
-        
-        Debug.Log($"DeterminFailureType - LaunchingPad={hasLaunchingPad}, LandingPad={hasLandingPad}, Others={hasOtherObjects}, ExcessiveSpeed={wasExcessiveSpeed}");
-        
-        if (wasExcessiveSpeed)
-        {
-            // 超速情况：03, 04, 05
-            if (hasLaunchingPad)
-            {
-                failureCategory = "03";
-                Debug.Log("Failure Type: 03 - Excessive speed on LaunchingPad");
-            }
-            else if (hasLandingPad)
-            {
-                failureCategory = "04";
-                Debug.Log("Failure Type: 04 - Excessive speed on LandingPad");
-            }
-            else if (hasOtherObjects)
-            {
-                failureCategory = "05";
-                Debug.Log("Failure Type: 05 - Excessive speed on other objects");
-            }
-        }
-        else
-        {
-            // 无超速情况：01, 02, 06
-            if (hasLaunchingPad && !hasLandingPad && !hasOtherObjects)
-            {
-                failureCategory = "01";
-                Debug.Log("Failure Type: 01 - Only LaunchingPad");
-            }
-            else if (hasLandingPad && !hasLaunchingPad && !hasOtherObjects)
-            {
-                // 只有LandingPad但没有Finish标签（应该在CheckVictoryConditions已经排除了有Finish的情况）
-                failureCategory = "02";
-                Debug.Log("Failure Type: 02 - LandingPad without Finish tag");
-            }
-            else if (hasLandingPad && hasOtherObjects)
-            {
-                failureCategory = "06";
-                Debug.Log("Failure Type: 06 - LandingPad with others");
-            }
-            else if (hasLaunchingPad && hasOtherObjects)
-            {
-                failureCategory = "06";
-                Debug.Log("Failure Type: 06 - LaunchingPad with others");
-            }
-            else
-            {
-                failureCategory = "00";
-                Debug.Log($"Failure Type: 00 - Other case (L={hasLaunchingPad}, LP={hasLandingPad}, O={hasOtherObjects})");
-            }
-        }
-        
-        TriggerDefeat(failureCategory);
     }
 
     void TriggerVictory()
@@ -393,30 +269,18 @@ public class Resulting : MonoBehaviour
         Invoke("LoadNextLevel", levelLoadDelay);
     }
 
-    void TriggerDefeat(string failureCategory)
+    void TriggerExplosion()
     {
         hasResult = true;
-        Debug.Log($"<color=red>★★★ DEFEAT - Category: {failureCategory} ★★★</color>");
+        Debug.Log($"<color=red>★★★ EXPLOSION! ★★★</color>");
         
-        // 显示失败文本
-        if (defeatText != null)
+        // 手动触发爆炸效果（当火箭停在错误位置时）
+        Movement movementController = GetComponent<Movement>();
+        if (movementController != null)
         {
-            defeatText.gameObject.SetActive(true);
-        }
-        
-        // 显示失败评语
-        if (defeatCommentText != null)
-        {
-            string comment = GetRandomFailureComment(failureCategory);
-            defeatCommentText.text = comment;
-            defeatCommentText.gameObject.SetActive(true);
-            Debug.Log($"<color=red>Failure comment: {comment}</color>");
-        }
-        
-        // 清空CollisionHandler状态
-        if (collisionHandler != null)
-        {
-            collisionHandler.ResetState();
+            // 以当前速度触发爆炸
+            float currentSpeed = collisionHandler != null ? collisionHandler.GetCurrentSpeed() : 0f;
+            movementController.DetachChildRigidbodies(currentSpeed);
         }
         
         // 停止音效
@@ -425,47 +289,5 @@ public class Resulting : MonoBehaviour
         {
             audioSource.Stop();
         }
-        
-        // 延迟重新加载当前场景
-        Invoke("ReloadLevel", levelLoadDelay);
-    }
-    
-    string GetRandomFailureComment(string category)
-    {
-        // 如果找不到该类别，使用默认类别00
-        if (!failureComments.ContainsKey(category))
-        {
-            category = "00";
-        }
-        
-        List<string> comments = failureComments[category];
-        if (comments == null || comments.Count == 0)
-        {
-            return "Mission Failed.";
-        }
-        
-        // 随机选择一条评语
-        int randomIndex = Random.Range(0, comments.Count);
-        return comments[randomIndex];
-    }
-
-    void LoadNextLevel()
-    {
-        int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
-        int nextSceneIndex = currentSceneIndex + 1;
-        
-        // 如果是最后一关，回到第一关
-        if (nextSceneIndex >= SceneManager.sceneCountInBuildSettings)
-        {
-            nextSceneIndex = 0;
-        }
-        
-        SceneManager.LoadScene(nextSceneIndex);
-    }
-
-    void ReloadLevel()
-    {
-        int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
-        SceneManager.LoadScene(currentSceneIndex);
     }
 }

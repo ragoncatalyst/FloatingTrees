@@ -228,10 +228,10 @@ public class Movement : MonoBehaviour
     {
         if (isThrustingThisFrame)
         {
-            // 对父物体施加推力（驱动整体运动）
+            // 对父物体施加推力（驱动整体运动）- 始终向世界坐标系的上方
             if (parentRigidbody != null)
             {
-                parentRigidbody.AddRelativeForce(Vector3.up * mainThrust);
+                parentRigidbody.AddForce(Vector3.up * mainThrust);
             }
         }
     }

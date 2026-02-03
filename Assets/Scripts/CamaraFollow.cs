@@ -13,8 +13,6 @@ public class CamaraFollow : MonoBehaviour
     [SerializeField] private float scrollSensitivity = 2f;          // 滚轮灵敏度
     [SerializeField] private float distanceReturnSpeed = 3f;        // 距离归位基础速度
     [SerializeField] private float maxDistanceReturnSpeed = 10f;    // 距离归位最大速度
-    [SerializeField] private float rotationReturnSpeed = 50f;       // 角度归位基础速度（度/秒）
-    [SerializeField] private float maxRotationReturnSpeed = 200f;   // 角度归位最大速度（度/秒）
     [SerializeField] private float rotationTransitionTime = 0.3f;   // 角度切换过渡时间
     [SerializeField] private float waitListTimeout = 0.2f;          // 等待列表超时时间（秒）
     

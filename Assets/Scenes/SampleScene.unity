@@ -280,7 +280,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &208969348
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1009,7 +1009,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &523446428
 Transform:
   m_ObjectHideFlags: 0
@@ -1784,7 +1784,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &770001642
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2225,8 +2225,6 @@ MonoBehaviour:
   scrollSensitivity: 2
   distanceReturnSpeed: 3
   maxDistanceReturnSpeed: 10
-  rotationReturnSpeed: 50
-  maxRotationReturnSpeed: 200
   rotationTransitionTime: 0.5
   waitListTimeout: 0.2
 --- !u!114 &963194230
@@ -2517,7 +2515,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1082427755
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2624,7 +2622,7 @@ RectTransform:
   m_Father: {fileID: 1292307465}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 10, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -3051,7 +3049,7 @@ RectTransform:
   m_Father: {fileID: 66250162}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 20, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -3657,13 +3655,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 63b9754603dd94efcbf82bc523e48fed, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  target: {fileID: 0}
-  obstacleLayer:
-    m_Bits: 4294967295
-  transitionTime: 2
-  checkInterval: 1
-  checkTimer: 0
-  obstacleTransparency: {fileID: 0}
 --- !u!1 &1978550430
 GameObject:
   m_ObjectHideFlags: 0
@@ -4097,13 +4088,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 63b9754603dd94efcbf82bc523e48fed, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  target: {fileID: 0}
-  obstacleLayer:
-    m_Bits: 4294967295
-  transitionTime: 2
-  checkInterval: 1
-  checkTimer: 0
-  obstacleTransparency: {fileID: 0}
 --- !u!1001 &5005920068468881871
 PrefabInstance:
   m_ObjectHideFlags: 0

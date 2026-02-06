@@ -71,8 +71,6 @@ public class CollisionHandler : MonoBehaviour
     // 处理碰撞进入（直接在父物体上调用）
     void OnCollisionEnter(Collision collision)
     {
-        Debug.Log($"<color=red>★★★ OnCollisionEnter CALLED! Object: {(collision?.gameObject?.name ?? "NULL")}</color>");
-        
         if (collision == null || collision.gameObject == null) return;
         
         // 添加到活动碰撞列表
@@ -82,7 +80,6 @@ public class CollisionHandler : MonoBehaviour
         }
         
         float impactSpeed = collision.relativeVelocity.magnitude;
-        Debug.Log($"<color=orange>★ COLLISION ENTER: {collision.gameObject.name} (Tag: {collision.gameObject.tag}), Speed: {impactSpeed:F2} m/s</color>");
         
         // 记录接触的物体
         string objectName = collision.gameObject.name;
@@ -91,13 +88,11 @@ public class CollisionHandler : MonoBehaviour
         {
             lastContactedObjects.Add(objectName);
             contactedObjectTags[objectName] = objectTag;  // 记录Tag
-            Debug.Log($"<color=orange>Added contact: {objectName} (Tag: {objectTag}), total contacts: {activeCollisions.Count}</color>");
         }
         
         // 检查超速撞击
         if (impactSpeed > maxLandingSpeed)
         {
-            Debug.Log($"<color=red>★ CRASH: Impact speed too high! {impactSpeed:F1} m/s > {maxLandingSpeed} m/s</color>");
             
             // 改变所有子方块为dynamic状态（解除粘合），传递撞击速度
             Movement movementController = GetComponent<Movement>();
@@ -121,7 +116,6 @@ public class CollisionHandler : MonoBehaviour
         {
             isLanded = true;
             OnLanded?.Invoke();
-            Debug.Log("<color=yellow>★ ENTERED LANDING STATE</color>");
         }
     }
 
@@ -137,13 +131,6 @@ public class CollisionHandler : MonoBehaviour
         {
             lastContactedObjects.Add(objectName);
             contactedObjectTags[objectName] = objectTag;  // 记录Tag
-            Debug.Log($"<color=yellow>★ Added to lastContactedObjects: {objectName} (Tag: {objectTag}), total: {lastContactedObjects.Count}</color>");
-        }
-        
-        // 定期输出碰撞保持状态
-        if (Time.frameCount % 30 == 0)  // 每30帧输出一次
-        {
-            Debug.Log($"<color=yellow>★ OnCollisionStay: {objectName}, lastContactedObjects: {lastContactedObjects.Count}</color>");
         }
     }
 
@@ -152,11 +139,8 @@ public class CollisionHandler : MonoBehaviour
     {
         if (collision == null) return;
         
-        Debug.Log($"<color=cyan>★ COLLISION EXIT: {collision.gameObject.name}</color>");
-        
         // 从活动碰撞列表中移除
         activeCollisions.Remove(collision);
-        Debug.Log($"<color=cyan>★ Active collisions remaining: {activeCollisions.Count}</color>");
         
         // 如果没有任何活动碰撞，离开着陆状态
         if (activeCollisions.Count == 0)
@@ -165,7 +149,6 @@ public class CollisionHandler : MonoBehaviour
             {
                 isLanded = false;
                 OnTookOff?.Invoke();
-                Debug.Log("<color=cyan>★ LEFT LANDING STATE - No active collisions</color>");
             }
         }
     }
@@ -180,7 +163,6 @@ public class CollisionHandler : MonoBehaviour
             
             if (currentSpeed > takeoffSpeedThreshold)
             {
-                Debug.Log($"<color=magenta>★ CLEARED contact history (speed: {currentSpeed:F2} m/s, starting new flight segment)</color>");
                 lastContactedObjects.Clear();
                 contactedObjectTags.Clear();
             }

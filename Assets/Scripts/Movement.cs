@@ -5,6 +5,14 @@ using UnityEngine;
 
 public class Movement : MonoBehaviour
 {
+    // ========================================
+    // 性能优化说明：
+    // 1. 移除了每帧同步方块位置的SynchronizeChildRigidbodies调用
+    // 2. 方块作为Rocket的子对象，会自动通过Unity的Transform父子关系保持相对位置
+    // 3. 使用字典存储Transform引用，避免索引错乱问题
+    // 4. 只在爆炸时才解除父子关系并应用物理
+    // ========================================
+    
     [Header("Movement Settings")]
     [SerializeField] private float mainThrust = 100f;            // 主推进力
     [SerializeField] private float horizontalMoveForce = 50f;   // 水平移动力
@@ -21,8 +29,11 @@ public class Movement : MonoBehaviour
     
     private Rigidbody parentRigidbody;                    // 父物体的Rigidbody（用于驱动整体运动）
     private Rigidbody[] childRigidbodies;                 // 所有子物体的Rigidbody（用于碰撞检测）
-    private Vector3[] initialLocalPositions;              // 初始相对位置
-    private Quaternion[] initialLocalRotations;           // 初始相对旋转
+    
+    // 使用字典存储每个方块的初始位置，key是方块的Transform引用
+    private Dictionary<Transform, Vector3> initialLocalPositions = new Dictionary<Transform, Vector3>();
+    private Dictionary<Transform, Quaternion> initialLocalRotations = new Dictionary<Transform, Quaternion>();
+    
     private AudioSource myAudioSource;
     private CamaraFollow cameraFollow;                    // 摄像头脚本（用于获取当前角度）
     
@@ -63,7 +74,8 @@ public class Movement : MonoBehaviour
         }
         
         // 获取所有子物体中有Renderer的方块（排除空的Layer容器）
-        Renderer[] allRenderers = GetComponentsInChildren<Renderer>();
+        // 重要：使用true参数包括被禁用的GameObject
+        Renderer[] allRenderers = GetComponentsInChildren<Renderer>(true);
         List<Transform> childTransforms = new List<Transform>();
         
         foreach (Renderer renderer in allRenderers)
@@ -72,41 +84,33 @@ public class Movement : MonoBehaviour
             if (child != transform && !childTransforms.Contains(child))  // 排除父物体本身，避免重复
             {
                 childTransforms.Add(child);
+                
+                // 只记录初始位置和旋转，不每帧强制同步
+                // 方块作为子对象会自动跟随父物体运动
+                initialLocalPositions[child] = child.localPosition;
+                initialLocalRotations[child] = child.localRotation;
             }
         }
         
-        // 记录所有子物体的初始相对位置和旋转
-        initialLocalPositions = new Vector3[childTransforms.Count];
-        initialLocalRotations = new Quaternion[childTransforms.Count];
-        childRigidbodies = new Rigidbody[childTransforms.Count];
+        // 初始化子物体Rigidbody数组（爆炸时才会创建）
+        childRigidbodies = new Rigidbody[0];
         
-        for (int i = 0; i < childTransforms.Count; i++)
+        // 为所有方块添加Collider和碰撞转发器
+        foreach (Transform child in childTransforms)
         {
-            initialLocalPositions[i] = childTransforms[i].localPosition;
-            initialLocalRotations[i] = childTransforms[i].localRotation;
-            childRigidbodies[i] = childTransforms[i].GetComponent<Rigidbody>();
-            
-            // 如果子物体有Rigidbody（不应该有），移除它
-            if (childRigidbodies[i] != null)
-            {
-                Debug.LogWarning($"Child '{childTransforms[i].name}' has a Rigidbody which is not needed before explosion!");
-            }
-            
             // 确保每个方块都有Collider
-            BoxCollider childCollider = childTransforms[i].GetComponent<BoxCollider>();
+            BoxCollider childCollider = child.GetComponent<BoxCollider>();
             if (childCollider == null)
             {
-                childCollider = childTransforms[i].gameObject.AddComponent<BoxCollider>();
-                Debug.Log($"<color=green>★ Added BoxCollider to '{childTransforms[i].name}'</color>");
+                childCollider = child.gameObject.AddComponent<BoxCollider>();
             }
             
             // 添加碰撞转发器，将碰撞事件转发给父物体
-            ChildCollisionForwarder forwarder = childTransforms[i].GetComponent<ChildCollisionForwarder>();
+            ChildCollisionForwarder forwarder = child.GetComponent<ChildCollisionForwarder>();
             if (forwarder == null)
             {
-                forwarder = childTransforms[i].gameObject.AddComponent<ChildCollisionForwarder>();
+                forwarder = child.gameObject.AddComponent<ChildCollisionForwarder>();
                 forwarder.SetParent(this.gameObject);
-                Debug.Log($"<color=green>★ Added ChildCollisionForwarder to '{childTransforms[i].name}'</color>");
             }
         }
         
@@ -124,22 +128,15 @@ public class Movement : MonoBehaviour
         if (parentCollider != null)
         {
             Destroy(parentCollider);
-            Debug.Log($"<color=yellow>★ Removed parent Collider - using individual block colliders instead</color>");
-        }
-        
-        // 验证Rigidbody配置
-        if (parentRigidbody != null)
-        {
-            Debug.Log($"<color=green>★ Parent Rigidbody: isKinematic={parentRigidbody.isKinematic}, useGravity={parentRigidbody.useGravity}, drag={parentRigidbody.drag}, angularDrag={parentRigidbody.angularDrag}</color>");
         }
         
         if (childTransforms.Count == 0)
         {
-            Debug.LogError("No block objects found! Make sure your rocket has visible blocks with Renderers.");
+            Debug.LogError("[Movement] No block objects found!");
         }
         else
         {
-            Debug.Log($"<color=green>★ Found {childTransforms.Count} block objects (5x5x5 structure support)</color>");
+            Debug.Log($"[Movement] Initialized {childTransforms.Count} blocks");
         }
     }
 
@@ -154,31 +151,13 @@ public class Movement : MonoBehaviour
     {
         ProcessThrust();
         ProcessHorizontalMovement();
-        SynchronizeChildRigidbodies();  // 同步所有子物体，保持粘合状态
+        // 注意：不需要每帧同步子物体位置，Unity的Transform父子关系会自动保持相对位置
+        // 只有在爆炸时才需要解除父子关系并应用物理
     }
     
-    // 同步所有方块位置和旋转（保持粘合状态）
-    // 只同步实际方块，不修改Layer容器
-    void SynchronizeChildRigidbodies()
-    {
-        // 如果爆炸已发生（childRigidbodies被清空），停止同步
-        if (childRigidbodies.Length == 0) return;
-        
-        // 获取所有方块并确保它们保持初始相对位置和旋转
-        Renderer[] allRenderers = GetComponentsInChildren<Renderer>();
-        int index = 0;
-        
-        foreach (Renderer renderer in allRenderers)
-        {
-            Transform child = renderer.transform;
-            if (child != transform && index < initialLocalPositions.Length)
-            {
-                child.localPosition = initialLocalPositions[index];
-                child.localRotation = initialLocalRotations[index];
-                index++;
-            }
-        }
-    }
+    // 注意：移除了SynchronizeChildRigidbodies方法
+    // 方块作为Rocket的子对象，会自动通过Unity的Transform父子关系保持相对位置
+    // 不需要每帧手动同步，这样可以大幅提升性能
 
     void ProcessInput()
     {

@@ -32,7 +32,7 @@ public class Resulting : MonoBehaviour
         
         if (collisionHandler == null)
         {
-            Debug.LogError("CollisionHandler not found on parent!");
+            // Debug.LogError("CollisionHandler not found on parent!");
         }
         else
         {
@@ -49,7 +49,7 @@ public class Resulting : MonoBehaviour
         lastFrameSpeed = 0f;
         hasEverHadVelocity = false;
         
-        Debug.Log("Resulting system initialized");
+            // Debug.Log("Resulting system initialized");
     }
 
     void OnDestroy()
@@ -66,7 +66,7 @@ public class Resulting : MonoBehaviour
     {
         if (hasResult) return;  // 如果已经有结果，不再处理
         
-        Debug.Log($"<color=red>★★★ HandleCrash called - EXPLOSION! ★★★</color>");
+            // Debug.Log($"<color=red>★★★ HandleCrash called - EXPLOSION! ★★★</color>");
         // 任何碰撞都直接爆炸，由CollisionHandler处理爆炸效果
         hasResult = true;
     }
@@ -85,10 +85,10 @@ public class Resulting : MonoBehaviour
         if (landingInfo.isLanded != isLanded)
         {
             isLanded = landingInfo.isLanded;
-            if (isLanded)
-                Debug.Log("<color=yellow>★ Resulting: Rocket ENTERED landing state</color>");
-            else
-                Debug.Log("<color=cyan>★ Resulting: Rocket LEFT landing state</color>");
+            // if (isLanded)
+            //     Debug.Log("<color=yellow>★ Resulting: Rocket ENTERED landing state</color>");
+            // else
+            //     Debug.Log("<color=cyan>★ Resulting: Rocket LEFT landing state</color>");
         }
         
         // 无论是否着陆，只要曾经接触过物体，就持续检查速度和结局
@@ -136,17 +136,17 @@ public class Resulting : MonoBehaviour
                 {
                     hasDetectedStop = true;
                     stoppedTime = 0f;
-                    Debug.Log($"<color=yellow>★ Speed STOPPED! Now monitoring for {stopConfirmationTime}s...</color>");
+            // Debug.Log($"<color=yellow>★ Speed STOPPED! Now monitoring for {stopConfirmationTime}s...</color>");
                 }
                 
                 // 继续计时
                 stoppedTime += Time.fixedDeltaTime;
-                Debug.Log($"<color=yellow>★ Stopped for {stoppedTime:F2}s/{stopConfirmationTime}s (contacts: {landingInfo.contactedObjects.Count})</color>");
+            // Debug.Log($"<color=yellow>★ Stopped for {stoppedTime:F2}s/{stopConfirmationTime}s (contacts: {landingInfo.contactedObjects.Count})</color>");
                 
                 // 如果速度在0.8秒内一直保持为0，判定为稳定停止
                 if (stoppedTime >= stopConfirmationTime)
                 {
-                    Debug.Log($"<color=green>★★★ STABLE STOP CONFIRMED! Checking victory...</color>");
+            // Debug.Log($"<color=green>★★★ STABLE STOP CONFIRMED! Checking victory...</color>");
                     hasDetectedStop = false;  // 重置，防止重复判定
                     stoppedTime = 0f;
                     CheckVictoryConditions(landingInfo);
@@ -157,7 +157,7 @@ public class Resulting : MonoBehaviour
                 // 速度不为0，重置计时
                 if (hasDetectedStop)
                 {
-                    Debug.Log($"<color=cyan>Speed increased to {currentSpeed:F2} m/s, resetting...</color>");
+            // Debug.Log($"<color=cyan>Speed increased to {currentSpeed:F2} m/s, resetting...</color>");
                     hasDetectedStop = false;
                     stoppedTime = 0f;
                 }
@@ -170,14 +170,14 @@ public class Resulting : MonoBehaviour
         bool isOverSpeed = currentSpeed > maxLandingSpeed;
         if (isOverSpeed != wasOverSpeed)
         {
-            if (isOverSpeed)
-            {
-                Debug.Log($"<color=orange>WARNING: Speed increased to {currentSpeed:F2} m/s (above safe limit {maxLandingSpeed} m/s)</color>");
-            }
-            else
-            {
-                Debug.Log($"<color=green>Speed decreased to safe range: {currentSpeed:F2} m/s</color>");
-            }
+            // if (isOverSpeed)
+            // {
+            //     Debug.Log($"<color=orange>WARNING: Speed increased to {currentSpeed:F2} m/s (above safe limit {maxLandingSpeed} m/s)</color>");
+            // }
+            // else
+            // {
+            //     Debug.Log($"<color=green>Speed decreased to safe range: {currentSpeed:F2} m/s</color>");
+            // }
             wasOverSpeed = isOverSpeed;
         }
         
@@ -193,13 +193,13 @@ public class Resulting : MonoBehaviour
         List<string> otherObjects = new List<string>();
         bool landingPadHasFinish = false;
         
-        Debug.Log($"<color=green>★★★ CheckVictoryConditions - contactedObjects: {string.Join(", ", landingInfo.contactedObjects)}</color>");
+            // Debug.Log($"<color=green>★★★ CheckVictoryConditions - contactedObjects: {string.Join(", ", landingInfo.contactedObjects)}</color>");
         
         foreach (string objectName in landingInfo.contactedObjects)
         {
             // 从CollisionHandler获取这个物体的Tag
             string objectTag = collisionHandler.GetContactedObjectTag(objectName);
-            Debug.Log($"<color=green>  - {objectName}, Tag: {objectTag}</color>");
+            // Debug.Log($"<color=green>  - {objectName}, Tag: {objectTag}</color>");
             
             if (objectName == "LandingPad")
             {
@@ -208,11 +208,11 @@ public class Resulting : MonoBehaviour
                 if (objectTag == "Finish")
                 {
                     landingPadHasFinish = true;
-                    Debug.Log($"<color=green>    -> LandingPad HAS Finish tag!</color>");
+            // Debug.Log($"<color=green>    -> LandingPad HAS Finish tag!</color>");
                 }
                 else
                 {
-                    Debug.Log($"<color=yellow>    -> LandingPad does NOT have Finish tag (Tag: {objectTag})</color>");
+            // Debug.Log($"<color=yellow>    -> LandingPad does NOT have Finish tag (Tag: {objectTag})</color>");
                 }
             }
             else if (objectName == "LaunchingPad")
@@ -225,18 +225,18 @@ public class Resulting : MonoBehaviour
             }
         }
         
-        Debug.Log($"<color=green>★★★ CheckVictoryConditions - LandingPads={landingPads.Count}(Finish={landingPadHasFinish}), LaunchingPads={launchingPads.Count}, Others={otherObjects.Count}</color>");
+            // Debug.Log($"<color=green>★★★ CheckVictoryConditions - LandingPads={landingPads.Count}(Finish={landingPadHasFinish}), LaunchingPads={launchingPads.Count}, Others={otherObjects.Count}</color>");
         
         // 判定胜利：必须有LandingPad且有Finish标签，且没有LaunchingPad和其他物体
         if (landingPads.Count > 0 && landingPadHasFinish && launchingPads.Count == 0 && otherObjects.Count == 0)
         {
-            Debug.Log("<color=green>★★★★★ VICTORY! Landed safely on LandingPad with Finish tag! ★★★★★</color>");
+            // Debug.Log("<color=green>★★★★★ VICTORY! Landed safely on LandingPad with Finish tag! ★★★★★</color>");
             TriggerVictory();
         }
         else
         {
             // 不符合胜利条件 - 触发爆炸
-            Debug.Log($"<color=red>Victory conditions NOT met - EXPLOSION!</color>");
+            // Debug.Log($"<color=red>Victory conditions NOT met - EXPLOSION!</color>");
             TriggerExplosion();
         }
     }
@@ -244,7 +244,7 @@ public class Resulting : MonoBehaviour
     void TriggerVictory()
     {
         hasResult = true;
-        Debug.Log("<color=green>★★★ VICTORY! Level Complete! ★★★</color>");
+            // Debug.Log("<color=green>★★★ VICTORY! Level Complete! ★★★</color>");
         
         // 显示胜利文本
         if (victoryText != null)
@@ -272,7 +272,7 @@ public class Resulting : MonoBehaviour
     void TriggerExplosion()
     {
         hasResult = true;
-        Debug.Log($"<color=red>★★★ EXPLOSION! ★★★</color>");
+            // Debug.Log($"<color=red>★★★ EXPLOSION! ★★★</color>");
         
         // 手动触发爆炸效果（当火箭停在错误位置时）
         Movement movementController = GetComponent<Movement>();

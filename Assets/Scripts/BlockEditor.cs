@@ -13,17 +13,23 @@ public class BlockEditor : MonoBehaviour
     [Header("方块管理")]
     [SerializeField] private Transform blocksContainer;          // 所有方块的父物体
     
+    [Header("编辑音效")]
+    [SerializeField] private AudioClip[] editSounds;             // 编辑音效（4个音频随机播放）
+    
     [Header("视觉反馈")]
     [SerializeField] private Color hoverTint = new Color(0.7f, 0.7f, 0.7f, 1f);  // Hover时的灰色
     [SerializeField] private Color clickTint = new Color(1f, 1f, 0.5f, 1f);      // 点击时的闪烁颜色
     [SerializeField] private float clickAnimDuration = 0.2f;                      // 点击动画时长
     
-    // 存储所有方块的状态（位置 -> 方块GameObject）
-    private Dictionary<Vector3, GameObject> blockDictionary = new Dictionary<Vector3, GameObject>();
+    // 存储所有方块的状态（Layer名/Cube名 -> 方块GameObject）
+    private Dictionary<string, GameObject> blockDictionary = new Dictionary<string, GameObject>();
     
     // Hover状态
     private GameObject hoveredBlock;
     private Dictionary<Renderer, Color[]> originalColors = new Dictionary<Renderer, Color[]>();
+    
+    // 音频播放器
+    private AudioSource audioSource;
     
     void Start()
     {
@@ -33,10 +39,54 @@ public class BlockEditor : MonoBehaviour
             mainCamera = Camera.main;
         }
         
+        // 如果没有指定容器，尝试查找Rocket
+        if (blocksContainer == null)
+        {
+            GameObject rocket = GameObject.Find("Rocket");
+            if (rocket != null)
+            {
+                blocksContainer = rocket.transform;
+            }
+        }
+        
+        // 获取或添加AudioSource组件
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+        }
+        
         // 初始化方块字典
         InitializeBlockDictionary();
         
         Debug.Log($"[BlockEditor] Initialized with {blockDictionary.Count} blocks");
+    }
+    
+    void OnEnable()
+    {
+        // 订阅场景加载事件，确保切换场景后重新初始化
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+    
+    void OnDisable()
+    {
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+    
+    void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+    {
+        // 场景加载后重新查找容器并初始化
+        if (blocksContainer == null)
+        {
+            GameObject rocket = GameObject.Find("Rocket");
+            if (rocket != null)
+            {
+                blocksContainer = rocket.transform;
+            }
+        }
+        
+        // 延迟初始化，确保RocketStateManager先应用状态
+        Invoke("InitializeBlockDictionary", 0.3f);
     }
     
     void InitializeBlockDictionary()
@@ -46,29 +96,28 @@ public class BlockEditor : MonoBehaviour
         // 如果指定了容器，从容器中查找所有方块
         if (blocksContainer != null)
         {
-            // 获取容器内所有带Collider的物体（这才是真正可点击的方块）
-            Collider[] allColliders = blocksContainer.GetComponentsInChildren<Collider>(true);
-            
-            foreach (Collider col in allColliders)
+            // 遍历每个Layer
+            for (int layer = 1; layer <= 5; layer++)
             {
-                GameObject block = col.gameObject;
-                Vector3 gridPos = GetGridPosition(block.transform.position);
+                Transform layerTransform = blocksContainer.Find($"Layer{layer}");
+                if (layerTransform == null) continue;
                 
-                if (!blockDictionary.ContainsKey(gridPos))
+                // 获取该Layer下所有Cube
+                foreach (Transform child in layerTransform)
                 {
-                    blockDictionary[gridPos] = block;
-                    Debug.Log($"[BlockEditor] Added block at {gridPos}: {block.name} (active: {block.activeSelf})");
-                }
-                else
-                {
-                    Debug.LogWarning($"[BlockEditor] Duplicate block at {gridPos}: {block.name} vs {blockDictionary[gridPos].name}");
+                    if (child.name.Contains("Cube"))
+                    {
+                        string key = $"Layer{layer}/{child.name}";
+                        blockDictionary[key] = child.gameObject;
+                    }
                 }
             }
-            Debug.Log($"[BlockEditor] Initialized from container: {blockDictionary.Count} blocks");
+            
+            Debug.Log($"[BlockEditor] Initialized {blockDictionary.Count} blocks");
         }
         else
         {
-            Debug.LogWarning("[BlockEditor] No blocksContainer assigned! Please assign it in the Inspector.");
+            Debug.LogWarning("[BlockEditor] No blocksContainer assigned!");
         }
     }
     
@@ -99,18 +148,31 @@ public class BlockEditor : MonoBehaviour
         if (GetFirstVisibleHit(ray, out hit))
         {
             GameObject hitBlock = hit.collider.gameObject;
-            Vector3 gridPos = GetGridPosition(hitBlock.transform.position);
             
-            // 只有在字典中的方块才能被关闭
-            if (blockDictionary.ContainsKey(gridPos) && blockDictionary[gridPos] == hitBlock)
+            // 检查是否是方块（在Layer下）
+            Transform layer = hitBlock.transform.parent;
+            if (layer != null && layer.name.StartsWith("Layer"))
             {
-                // 关闭此方块
-                DisableBlock(hitBlock);
-                Debug.Log($"[BlockEditor] Left Click - Disabled block: {hitBlock.name} at {hit.point}");
-            }
-            else
-            {
-                Debug.Log($"[BlockEditor] Left Click - Block not in container, ignoring: {hitBlock.name}");
+                // 直接禁用这个方块
+                hitBlock.SetActive(false);
+                
+                // 显式禁用Renderer确保视觉同步
+                Renderer[] renderers = hitBlock.GetComponentsInChildren<Renderer>(true);
+                foreach (Renderer r in renderers)
+                {
+                    r.enabled = false;
+                }
+                
+                Debug.Log($"[BlockEditor] Disabled {layer.name}/{hitBlock.name}");
+                
+                // 播放编辑音效
+                PlayEditSound();
+                
+                // 清除hover状态
+                if (hoveredBlock == hitBlock)
+                {
+                    hoveredBlock = null;
+                }
             }
         }
     }
@@ -125,38 +187,71 @@ public class BlockEditor : MonoBehaviour
         {
             GameObject hitBlock = hit.collider.gameObject;
             
-            // 获取碰撞点的法线方向
-            Vector3 normal = hit.normal;
-            
-            // 计算相邻方块的位置（沿法线方向）
-            Vector3 currentGridPos = GetGridPosition(hitBlock.transform.position);
-            Vector3 adjacentGridPos = currentGridPos + GetGridDirection(normal) * blockSize;
-            
-            Debug.Log($"[BlockEditor] Right Click - Current block at {currentGridPos}, adjacent position {adjacentGridPos}, normal {normal}");
-            
-            // 检查相邻位置是否有关闭的方块
-            if (blockDictionary.ContainsKey(adjacentGridPos))
+            // 检查是否是方块
+            Transform layer = hitBlock.transform.parent;
+            if (layer != null && layer.name.StartsWith("Layer"))
             {
-                GameObject adjacentBlock = blockDictionary[adjacentGridPos];
+                // 获取碰撞点的法线方向
+                Vector3 normal = hit.normal;
+                Vector3 gridDirection = GetGridDirection(normal);
                 
-                // 如果相邻方块处于关闭状态，打开它
-                if (adjacentBlock != null && !adjacentBlock.activeSelf)
+                // 计算目标位置（相邻方块应该在的位置）
+                Vector3 currentPos = hitBlock.transform.position;
+                Vector3 targetWorldPos = currentPos + gridDirection * blockSize;
+                
+                Debug.Log($"[BlockEditor] Right click: current={currentPos}, direction={gridDirection}, target={targetWorldPos}");
+                
+                // 在所有Layer中查找最接近目标位置的方块
+                GameObject closestBlock = null;
+                float minDistance = float.MaxValue;
+                
+                for (int layerIndex = 1; layerIndex <= 5; layerIndex++)
                 {
-                    EnableBlock(adjacentBlock);
-                    Debug.Log($"[BlockEditor] Right Click - Enabled adjacent block at {adjacentGridPos}");
+                    Transform layerTransform = blocksContainer.Find($"Layer{layerIndex}");
+                    if (layerTransform == null) continue;
+                    
+                    foreach (Transform child in layerTransform)
+                    {
+                        if (child.name.Contains("Cube"))
+                        {
+                            float distance = Vector3.Distance(child.position, targetWorldPos);
+                            
+                            // 如果距离小于0.1（容差范围），认为是目标方块
+                            if (distance < 0.1f && distance < minDistance)
+                            {
+                                minDistance = distance;
+                                closestBlock = child.gameObject;
+                            }
+                        }
+                    }
                 }
-                else if (adjacentBlock == null)
+                
+                // 如果找到了方块且当前是禁用状态，则启用它
+                if (closestBlock != null)
                 {
-                    Debug.LogWarning($"[BlockEditor] Right Click - Adjacent block is null at {adjacentGridPos}");
+                    if (!closestBlock.activeSelf)
+                    {
+                        closestBlock.SetActive(true);
+                        
+                        // 显式启用Renderer
+                        Renderer[] renderers = closestBlock.GetComponentsInChildren<Renderer>(true);
+                        foreach (Renderer r in renderers)
+                        {
+                            r.enabled = true;
+                        }
+                        
+                        Debug.Log($"[BlockEditor] Enabled {closestBlock.transform.parent.name}/{closestBlock.name} at distance {minDistance}");                        
+                        // 播放编辑音效
+                        PlayEditSound();                    }
+                    else
+                    {
+                        Debug.Log($"[BlockEditor] Block {closestBlock.name} already enabled");
+                    }
                 }
                 else
                 {
-                    Debug.Log($"[BlockEditor] Right Click - Adjacent block is already active at {adjacentGridPos}");
+                    Debug.LogWarning($"[BlockEditor] No block found near target position {targetWorldPos}");
                 }
-            }
-            else
-            {
-                Debug.Log($"[BlockEditor] Right Click - No block found at adjacent position {adjacentGridPos}");
             }
         }
     }
@@ -166,8 +261,16 @@ public class BlockEditor : MonoBehaviour
     {
         if (block != null && block.activeSelf)
         {
+            // 先禁用所有Renderer（确保视觉上消失）
+            Renderer[] renderers = block.GetComponentsInChildren<Renderer>(true);
+            foreach (Renderer r in renderers)
+            {
+                r.enabled = false;
+            }
+            
+            // 然后禁用GameObject
             block.SetActive(false);
-            Debug.Log($"[BlockEditor] Block disabled: {block.name}");
+            Debug.Log($"[BlockEditor] Block disabled: {block.name} (disabled {renderers.Length} renderers)");
         }
     }
     
@@ -176,8 +279,17 @@ public class BlockEditor : MonoBehaviour
     {
         if (block != null && !block.activeSelf)
         {
+            // 先启用GameObject
             block.SetActive(true);
-            Debug.Log($"[BlockEditor] Block enabled: {block.name}");
+            
+            // 然后启用所有Renderer（确保视觉上显示）
+            Renderer[] renderers = block.GetComponentsInChildren<Renderer>(true);
+            foreach (Renderer r in renderers)
+            {
+                r.enabled = true;
+            }
+            
+            Debug.Log($"[BlockEditor] Block enabled: {block.name} (enabled {renderers.Length} renderers)");
         }
     }
     
@@ -235,9 +347,15 @@ public class BlockEditor : MonoBehaviour
         return false;
     }
     
-    // 检查方块是否可见（检查材质透明度）
+    // 检查方块是否可见（检查GameObject激活状态和Renderer）
     bool IsBlockVisible(GameObject block)
     {
+        // 先检查GameObject是否激活
+        if (!block.activeSelf)
+        {
+            return false;
+        }
+        
         Renderer renderer = block.GetComponent<Renderer>();
         if (renderer == null || !renderer.enabled)
         {
@@ -267,8 +385,9 @@ public class BlockEditor : MonoBehaviour
             GameObject hitBlock = hit.collider.gameObject;
             Vector3 gridPos = GetGridPosition(hitBlock.transform.position);
             
-            // 只有在字典中的方块才能被hover
-            if (blockDictionary.ContainsKey(gridPos) && blockDictionary[gridPos] == hitBlock)
+            // 检查是否在容器内（通过Layer检查）
+            Transform layer = hitBlock.transform.parent;
+            if (layer != null && layer.name.StartsWith("Layer"))
             {
                 // 如果是新的方块
                 if (hitBlock != hoveredBlock)
@@ -354,6 +473,33 @@ public class BlockEditor : MonoBehaviour
             {
                 renderer.materials[i].color = colors[i];
             }
+        }
+    }
+    
+    // 公共方法：清除hover状态（供LayersManager调用）
+    public void ClearHover()
+    {
+        if (hoveredBlock != null)
+        {
+            RestoreBlockColor(hoveredBlock);
+            hoveredBlock = null;
+        }
+    }
+    
+    // 播放随机编辑音效
+    void PlayEditSound()
+    {
+        if (editSounds == null || editSounds.Length == 0 || audioSource == null)
+        {
+            return;
+        }
+        
+        // 从数组中随机选择一个音效
+        AudioClip randomClip = editSounds[Random.Range(0, editSounds.Length)];
+        
+        if (randomClip != null)
+        {
+            audioSource.PlayOneShot(randomClip);
         }
     }
     

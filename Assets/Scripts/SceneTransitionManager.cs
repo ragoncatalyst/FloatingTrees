@@ -17,6 +17,14 @@ public class SceneTransitionManager : MonoBehaviour
     private Canvas fadeCanvas;
     private bool isTransitioning = false;
     
+    /// <summary>
+    /// 检查是否正在进行场景切换
+    /// </summary>
+    public static bool IsTransitioning
+    {
+        get { return instance != null && instance.isTransitioning; }
+    }
+    
     void Awake()
     {
         // 单例模式
@@ -74,10 +82,19 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     public static void LoadSceneAsync(string sceneName)
     {
-        if (instance != null && !instance.isTransitioning)
+        if (instance == null)
         {
-            instance.StartCoroutine(instance.LoadSceneCoroutine(sceneName));
+            Debug.LogError("SceneTransitionManager实例不存在！请确保场景中有SceneTransitionManager。");
+            return;
         }
+        
+        if (instance.isTransitioning)
+        {
+            Debug.LogWarning("场景切换正在进行中，请稍候再试...");
+            return;
+        }
+        
+        instance.StartCoroutine(instance.LoadSceneCoroutine(sceneName));
     }
     
     IEnumerator LoadSceneCoroutine(string sceneName)

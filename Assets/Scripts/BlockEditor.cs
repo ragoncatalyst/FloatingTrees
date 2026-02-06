@@ -20,6 +20,8 @@ public class BlockEditor : MonoBehaviour
     [SerializeField] private Color hoverTint = new Color(0.7f, 0.7f, 0.7f, 1f);  // Hover时的灰色
     [SerializeField] private Color clickTint = new Color(1f, 1f, 0.5f, 1f);      // 点击时的闪烁颜色
     [SerializeField] private float clickAnimDuration = 0.2f;                      // 点击动画时长
+    [SerializeField] private float shakeAmount = 0.1f;                            // 摇晃幅度
+    [SerializeField] private float shakeDuration = 0.3f;                          // 摇晃时长
     
     // 存储所有方块的状态（Layer名/Cube名 -> 方块GameObject）
     private Dictionary<string, GameObject> blockDictionary = new Dictionary<string, GameObject>();
@@ -30,6 +32,9 @@ public class BlockEditor : MonoBehaviour
     
     // 音频播放器
     private AudioSource audioSource;
+    
+    // 摇晃状态标志
+    private bool isShaking = false;
     
     void Start()
     {
@@ -141,6 +146,12 @@ public class BlockEditor : MonoBehaviour
     
     void HandleLeftClick()
     {
+        // 如果正在摇晃，忽略点击
+        if (isShaking)
+        {
+            return;
+        }
+        
         Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
         
@@ -153,6 +164,17 @@ public class BlockEditor : MonoBehaviour
             Transform layer = hitBlock.transform.parent;
             if (layer != null && layer.name.StartsWith("Layer"))
             {
+                // 检查当前有多少个方块是开启的
+                int enabledBlockCount = CountEnabledBlocks();
+                
+                // 如果只剩1个方块，不允许关闭，播放摇晃动画
+                if (enabledBlockCount <= 1)
+                {
+                    Debug.Log($"[BlockEditor] Cannot disable last block! Shaking {layer.name}/{hitBlock.name}");
+                    StartCoroutine(ShakeBlock(hitBlock, ray.direction));
+                    return;
+                }
+                
                 // 直接禁用这个方块
                 hitBlock.SetActive(false);
                 
@@ -501,6 +523,85 @@ public class BlockEditor : MonoBehaviour
         {
             audioSource.PlayOneShot(randomClip);
         }
+    }
+    
+    // 统计当前有多少个方块是开启的
+    int CountEnabledBlocks()
+    {
+        int count = 0;
+        
+        if (blocksContainer != null)
+        {
+            for (int layer = 1; layer <= 5; layer++)
+            {
+                Transform layerTransform = blocksContainer.Find($"Layer{layer}");
+                if (layerTransform == null) continue;
+                
+                foreach (Transform child in layerTransform)
+                {
+                    if (child.name.Contains("Cube") && child.gameObject.activeSelf)
+                    {
+                        count++;
+                    }
+                }
+            }
+        }
+        
+        return count;
+    }
+    
+    // 摇晃方块动画（表示无法破坏）
+    IEnumerator ShakeBlock(GameObject block, Vector3 rayDirection)
+    {
+        if (block == null) yield break;
+        
+        // 设置摇晃状态，防止重复触发
+        isShaking = true;
+        
+        Vector3 originalPosition = block.transform.localPosition;
+        
+        // 计算垂直于射线的摇晃方向（使用世界Up向量叉乘射线方向）
+        Vector3 shakeDirection = Vector3.Cross(rayDirection.normalized, Vector3.up).normalized;
+        if (shakeDirection.magnitude < 0.1f)
+        {
+            // 如果射线方向与up平行，使用right向量
+            shakeDirection = Vector3.Cross(rayDirection.normalized, Vector3.right).normalized;
+        }
+        
+        // 将世界方向转换为本地方向
+        shakeDirection = block.transform.parent.InverseTransformDirection(shakeDirection);
+        
+        int shakeCount = 4; // 摇晃次数
+        float singleShakeDuration = shakeDuration / (shakeCount * 2);
+        
+        for (int i = 0; i < shakeCount; i++)
+        {
+            // 向左摇
+            float leftProgress = 0f;
+            while (leftProgress < 1f)
+            {
+                leftProgress += Time.deltaTime / singleShakeDuration;
+                float offset = Mathf.Sin(leftProgress * Mathf.PI) * shakeAmount;
+                block.transform.localPosition = originalPosition - shakeDirection * offset;
+                yield return null;
+            }
+            
+            // 向右摇
+            float rightProgress = 0f;
+            while (rightProgress < 1f)
+            {
+                rightProgress += Time.deltaTime / singleShakeDuration;
+                float offset = Mathf.Sin(rightProgress * Mathf.PI) * shakeAmount;
+                block.transform.localPosition = originalPosition + shakeDirection * offset;
+                yield return null;
+            }
+        }
+        
+        // 恢复原始位置
+        block.transform.localPosition = originalPosition;
+        
+        // 清除摇晃状态
+        isShaking = false;
     }
     
     // 播放点击动画

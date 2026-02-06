@@ -14,6 +14,10 @@ public class CamaraFollow : MonoBehaviour
     [SerializeField] private float rotationTransitionTime = 0.3f;   // 角度切换过渡时间
     [SerializeField] private float waitListTimeout = 0.2f;          // 等待列表超时时间（秒）
     
+    [Header("旋转音效")]
+    [SerializeField] private AudioClip[] rotationClockwiseSounds;      // 顺时针旋转音效
+    [SerializeField] private AudioClip[] rotationCounterClockwiseSounds; // 逆时针旋转音效
+    
     // 基准摄像头角度偏移（Euler angles）
     private readonly Vector3 baseRotation = new Vector3(30f, 30f, 0f);
     
@@ -41,6 +45,9 @@ public class CamaraFollow : MonoBehaviour
     private Queue<RotationTask> rotationWaitList = new Queue<RotationTask>();
     private float lastRotationEndTime = 0f;  // 最后一次旋转结束的时间
     
+    // 音频播放器
+    private AudioSource audioSource;
+    
     /// <summary>
     /// 获取当前角度索引（供Movement使用）
     /// 返回最接近的90度整数倍索引（0=0°, 1=90°, 2=180°, 3=270°）
@@ -56,6 +63,13 @@ public class CamaraFollow : MonoBehaviour
 
     void Start()
     {
+        // 获取或添加AudioSource组件
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+        }
+        
         // 查找目标
         if (target == null)
         {
@@ -215,6 +229,9 @@ public class CamaraFollow : MonoBehaviour
     /// <param name="deltaAngle">角度增量（正数逆时针，负数顺时针）</param>
     void RequestRotation(float deltaAngle)
     {
+        // 播放旋转音效
+        PlayRotationSound(deltaAngle);
+        
         if (!isTransitioning)
         {
             // 不在旋转，直接开始
@@ -245,6 +262,37 @@ public class CamaraFollow : MonoBehaviour
         targetYRotation = currentYRotation + deltaAngle;
         
         Debug.Log($"[CamaraFollow] 旋转: {startYRotation:F1}° → {targetYRotation:F1}° (增量: {deltaAngle:F0}°)");
+    }
+    
+    /// <summary>
+    /// 播放旋转音效
+    /// </summary>
+    /// <param name="deltaAngle">角度增量（负数=顺时针，正数=逆时针）</param>
+    void PlayRotationSound(float deltaAngle)
+    {
+        if (audioSource == null) return;
+        
+        AudioClip[] soundArray = null;
+        
+        // 负数是顺时针（Q键），正数是逆时针（E键）
+        if (deltaAngle < 0)
+        {
+            soundArray = rotationClockwiseSounds;
+        }
+        else if (deltaAngle > 0)
+        {
+            soundArray = rotationCounterClockwiseSounds;
+        }
+        
+        // 从数组中随机选择一个音效播放
+        if (soundArray != null && soundArray.Length > 0)
+        {
+            AudioClip randomClip = soundArray[Random.Range(0, soundArray.Length)];
+            if (randomClip != null)
+            {
+                audioSource.PlayOneShot(randomClip);
+            }
+        }
     }
     
     /// <summary>

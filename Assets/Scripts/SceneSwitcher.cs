@@ -12,6 +12,13 @@ public class SceneSwitcher : MonoBehaviour
         // 检测Enter键或Return键
         if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
         {
+            // 检查是否正在进行场景切换
+            if (SceneTransitionManager.IsTransitioning)
+            {
+                Debug.Log("场景切换中，请稍候...");
+                return;
+            }
+            
             SwitchScene();
         }
     }

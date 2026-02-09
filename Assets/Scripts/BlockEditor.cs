@@ -15,6 +15,7 @@ public class BlockEditor : MonoBehaviour
     
     [Header("编辑音效")]
     [SerializeField] private AudioClip[] editSounds;             // 编辑音效（4个音频随机播放）
+    [SerializeField] private AudioClip[] denySounds;             // 拒绝操作音效（破坏最后方块/范围外放置时播放）
     
     [Header("视觉反馈")]
     [SerializeField] private Color hoverTint = new Color(0.7f, 0.7f, 0.7f, 1f);  // Hover时的灰色
@@ -33,8 +34,10 @@ public class BlockEditor : MonoBehaviour
     // 音频播放器
     private AudioSource audioSource;
     
-    // 摇晃状态标志
+    // 摇晃状态
     private bool isShaking = false;
+    private GameObject shakingBlock = null;
+    private Dictionary<GameObject, Vector3> blockOriginalPositions = new Dictionary<GameObject, Vector3>();
     
     void Start()
     {
@@ -167,10 +170,11 @@ public class BlockEditor : MonoBehaviour
                 // 检查当前有多少个方块是开启的
                 int enabledBlockCount = CountEnabledBlocks();
                 
-                // 如果只剩1个方块，不允许关闭，播放摇晃动画
+                // 如果只剩1个方块，不允许关闭，播放摇晃动画和拒绝音效
                 if (enabledBlockCount <= 1)
                 {
                     Debug.Log($"[BlockEditor] Cannot disable last block! Shaking {layer.name}/{hitBlock.name}");
+                    PlayDenySound();
                     StartCoroutine(ShakeBlock(hitBlock, ray.direction));
                     return;
                 }
@@ -201,6 +205,12 @@ public class BlockEditor : MonoBehaviour
     
     void HandleRightClick()
     {
+        // 如果正在摇晃，忽略点击
+        if (isShaking)
+        {
+            return;
+        }
+        
         Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
         
@@ -272,7 +282,9 @@ public class BlockEditor : MonoBehaviour
                 }
                 else
                 {
-                    Debug.LogWarning($"[BlockEditor] No block found near target position {targetWorldPos}");
+                    Debug.LogWarning($"[BlockEditor] No block found near target position {targetWorldPos} - out of 5x5x5 range");
+                    PlayDenySound();
+                    StartCoroutine(ShakeBlock(hitBlock, ray.direction));
                 }
             }
         }
@@ -525,6 +537,23 @@ public class BlockEditor : MonoBehaviour
         }
     }
     
+    // 播放随机拒绝音效
+    void PlayDenySound()
+    {
+        if (denySounds == null || denySounds.Length == 0 || audioSource == null)
+        {
+            return;
+        }
+        
+        // 从数组中随机选择一个拒绝音效
+        AudioClip randomClip = denySounds[Random.Range(0, denySounds.Length)];
+        
+        if (randomClip != null)
+        {
+            audioSource.PlayOneShot(randomClip);
+        }
+    }
+    
     // 统计当前有多少个方块是开启的
     int CountEnabledBlocks()
     {
@@ -555,10 +584,27 @@ public class BlockEditor : MonoBehaviour
     {
         if (block == null) yield break;
         
+        // 如果已经在摇晃这个方块，忽略
+        if (isShaking && shakingBlock == block)
+        {
+            yield break;
+        }
+        
         // 设置摇晃状态，防止重复触发
         isShaking = true;
+        shakingBlock = block;
         
-        Vector3 originalPosition = block.transform.localPosition;
+        // 保存或获取原始位置
+        Vector3 originalPosition;
+        if (!blockOriginalPositions.ContainsKey(block))
+        {
+            originalPosition = block.transform.localPosition;
+            blockOriginalPositions[block] = originalPosition;
+        }
+        else
+        {
+            originalPosition = blockOriginalPositions[block];
+        }
         
         // 计算垂直于射线的摇晃方向（使用世界Up向量叉乘射线方向）
         Vector3 shakeDirection = Vector3.Cross(rayDirection.normalized, Vector3.up).normalized;
@@ -602,6 +648,7 @@ public class BlockEditor : MonoBehaviour
         
         // 清除摇晃状态
         isShaking = false;
+        shakingBlock = null;
     }
     
     // 播放点击动画

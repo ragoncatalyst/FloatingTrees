@@ -571,6 +571,10 @@ MonoBehaviour:
   - {fileID: 8300000, guid: d32fa00ef91834a5d9d449062413b241, type: 3}
   - {fileID: 8300000, guid: 044ff790bc1dc491c91eaefbfee02886, type: 3}
   - {fileID: 8300000, guid: 9b31c18937b20448b8d8cf80f6e1ef27, type: 3}
+  denySounds:
+  - {fileID: 8300000, guid: 5d73a2610b3544e72b6179a7d89d5c41, type: 3}
+  - {fileID: 8300000, guid: 01cb2c9e004ef499ea1393b8682567c4, type: 3}
+  - {fileID: 8300000, guid: 65cb5107ecc664aadb2089669ca87838, type: 3}
   hoverTint: {r: 0.8867924, g: 0.8867924, b: 0.8867924, a: 1}
   clickTint: {r: 0.6698113, g: 0.6698113, b: 0.6698113, a: 1}
   clickAnimDuration: 0.2

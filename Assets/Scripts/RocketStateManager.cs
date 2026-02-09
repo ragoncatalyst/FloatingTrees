@@ -163,11 +163,17 @@ public class RocketStateManager : MonoBehaviour
                 int blockNum = int.Parse(match.Groups[1].Value);
                 
                 // 检查保存的状态中是否有这个方块的记录
-                bool shouldBeEnabled = true; // 默认启用
+                // 如果blockStates中有数据，但某个方块不在记录中，说明该方块应该被禁用
+                bool shouldBeEnabled = false; // 默认禁用（重要！）
                 
                 if (blockStates.ContainsKey(layer) && blockStates[layer].ContainsKey(blockNum))
                 {
                     shouldBeEnabled = blockStates[layer][blockNum];
+                }
+                else
+                {
+                    // 如果没有记录，说明这个方块应该是禁用的
+                    shouldBeEnabled = false;
                 }
                 
                 // 应用状态
@@ -296,6 +302,9 @@ public class RocketStateManager : MonoBehaviour
             {
                 string[] lines = File.ReadAllLines(saveFilePath);
                 
+                // 检查文件是否有有效内容
+                bool hasValidContent = false;
+                
                 foreach (string line in lines)
                 {
                     if (string.IsNullOrWhiteSpace(line) || line.Length != 4) continue;
@@ -311,17 +320,27 @@ public class RocketStateManager : MonoBehaviour
                     }
                     
                     blockStates[layer][blockNum] = isEnabled;
+                    hasValidContent = true;
                 }
                 
-                Debug.Log($"[RocketStateManager] State loaded from file: {lines.Length} entries");
+                if (hasValidContent)
+                {
+                    Debug.Log($"[RocketStateManager] State loaded from file: {lines.Length} entries, {blockStates.Count} layers");
+                }
+                else
+                {
+                    Debug.Log($"[RocketStateManager] File exists but is empty or invalid, will initialize to single block");
+                    blockStates.Clear(); // 确保清空
+                }
             }
             else
             {
-                Debug.Log($"[RocketStateManager] No saved state file found, starting fresh");
+                Debug.Log($"[RocketStateManager] No saved state file found, will initialize to single block");
             }
         }
-        catch
+        catch (System.Exception e)
         {
+            Debug.LogWarning($"[RocketStateManager] Failed to load state from file: {e.Message}");
             blockStates.Clear();
         }
     }

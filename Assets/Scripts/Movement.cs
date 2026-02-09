@@ -372,7 +372,7 @@ public class Movement : MonoBehaviour
             {
                 explosionDirection = new Vector3(
                     UnityEngine.Random.Range(-1f, 1f),
-                    UnityEngine.Random.Range(0.5f, 1f),  // 上方偏向，避免直接掉下去
+                    UnityEngine.Random.Range(0.2f, 0.6f),  // 轻微向上偏向
                     UnityEngine.Random.Range(-1f, 1f)
                 ).normalized;
                 Debug.Log($"<color=magenta>★ {child.name} 离中心太近，使用随机爆炸方向: {explosionDirection}</color>");
@@ -382,8 +382,8 @@ public class Movement : MonoBehaviour
             float randomFactor = UnityEngine.Random.Range(0.8f, 1.2f);
             float explosionForce = calculatedExplosionForce * randomFactor;
             
-            // 确保有最小爆炸力（即使速度很小）
-            float minExplosionForce = 300f;  // 最小300的爆炸力
+            // 确保有最小爆炸力（即使速度很小），但不要太大
+            float minExplosionForce = 100f;  // 降低最小爆炸力到100
             if (explosionForce < minExplosionForce)
             {
                 explosionForce = minExplosionForce;
@@ -392,12 +392,12 @@ public class Movement : MonoBehaviour
             
             childRb.AddForce(explosionDirection * explosionForce, ForceMode.Impulse);
             
-            // 添加额外的向上爆炸力，确保方块会弹起（对单个方块特别有用）
-            Vector3 upwardForce = Vector3.up * (explosionForce * 0.3f);  // 30%的向上力
+            // 添加轻微的向上力（降低到10%）
+            Vector3 upwardForce = Vector3.up * (explosionForce * 0.1f);
             childRb.AddForce(upwardForce, ForceMode.Impulse);
             
             // 添加随机旋转力（基于速度）
-            float minTorque = 50f;  // 最小扭矩
+            float minTorque = 20f;  // 降低最小扭矩到20
             float actualTorque = Mathf.Max(calculatedTorque, minTorque);
             Vector3 randomTorque = new Vector3(
                 UnityEngine.Random.Range(-actualTorque, actualTorque),

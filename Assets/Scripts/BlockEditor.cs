@@ -67,7 +67,7 @@ public class BlockEditor : MonoBehaviour
         // 初始化方块字典
         InitializeBlockDictionary();
         
-        Debug.Log($"[BlockEditor] Initialized with {blockDictionary.Count} blocks");
+        // Debug.Log($"[BlockEditor] Initialized with {blockDictionary.Count} blocks");
     }
     
     void OnEnable()
@@ -121,12 +121,12 @@ public class BlockEditor : MonoBehaviour
                 }
             }
             
-            Debug.Log($"[BlockEditor] Initialized {blockDictionary.Count} blocks");
+            // Debug.Log($"[BlockEditor] Initialized {blockDictionary.Count} blocks");
         }
-        else
-        {
-            Debug.LogWarning("[BlockEditor] No blocksContainer assigned!");
-        }
+        // else
+        // {
+        //     Debug.LogWarning("[BlockEditor] No blocksContainer assigned!");
+        // }
     }
     
     void Update()
@@ -173,7 +173,7 @@ public class BlockEditor : MonoBehaviour
                 // 如果只剩1个方块，不允许关闭，播放摇晃动画和拒绝音效
                 if (enabledBlockCount <= 1)
                 {
-                    Debug.Log($"[BlockEditor] Cannot disable last block! Shaking {layer.name}/{hitBlock.name}");
+                    // Debug.Log($"[BlockEditor] Cannot disable last block! Shaking {layer.name}/{hitBlock.name}");
                     PlayDenySound();
                     StartCoroutine(ShakeBlock(hitBlock, ray.direction));
                     return;
@@ -189,7 +189,7 @@ public class BlockEditor : MonoBehaviour
                     r.enabled = false;
                 }
                 
-                Debug.Log($"[BlockEditor] Disabled {layer.name}/{hitBlock.name}");
+                // Debug.Log($"[BlockEditor] Disabled {layer.name}/{hitBlock.name}");
                 
                 // 播放编辑音效
                 PlayEditSound();
@@ -231,7 +231,7 @@ public class BlockEditor : MonoBehaviour
                 Vector3 currentPos = hitBlock.transform.position;
                 Vector3 targetWorldPos = currentPos + gridDirection * blockSize;
                 
-                Debug.Log($"[BlockEditor] Right click: current={currentPos}, direction={gridDirection}, target={targetWorldPos}");
+                // Debug.Log($"[BlockEditor] Right click: current={currentPos}, direction={gridDirection}, target={targetWorldPos}");
                 
                 // 在所有Layer中查找最接近目标位置的方块
                 GameObject closestBlock = null;
@@ -272,17 +272,17 @@ public class BlockEditor : MonoBehaviour
                             r.enabled = true;
                         }
                         
-                        Debug.Log($"[BlockEditor] Enabled {closestBlock.transform.parent.name}/{closestBlock.name} at distance {minDistance}");                        
+                        // Debug.Log($"[BlockEditor] Enabled {closestBlock.transform.parent.name}/{closestBlock.name} at distance {minDistance}");                        
                         // 播放编辑音效
                         PlayEditSound();                    }
-                    else
-                    {
-                        Debug.Log($"[BlockEditor] Block {closestBlock.name} already enabled");
-                    }
+                    // else
+                    // {
+                    //     Debug.Log($"[BlockEditor] Block {closestBlock.name} already enabled");
+                    // }
                 }
                 else
                 {
-                    Debug.LogWarning($"[BlockEditor] No block found near target position {targetWorldPos} - out of 5x5x5 range");
+                    // Debug.LogWarning($"[BlockEditor] No block found near target position {targetWorldPos} - out of 5x5x5 range");
                     PlayDenySound();
                     StartCoroutine(ShakeBlock(hitBlock, ray.direction));
                 }
@@ -290,42 +290,7 @@ public class BlockEditor : MonoBehaviour
         }
     }
     
-    // 关闭方块
-    void DisableBlock(GameObject block)
-    {
-        if (block != null && block.activeSelf)
-        {
-            // 先禁用所有Renderer（确保视觉上消失）
-            Renderer[] renderers = block.GetComponentsInChildren<Renderer>(true);
-            foreach (Renderer r in renderers)
-            {
-                r.enabled = false;
-            }
-            
-            // 然后禁用GameObject
-            block.SetActive(false);
-            Debug.Log($"[BlockEditor] Block disabled: {block.name} (disabled {renderers.Length} renderers)");
-        }
-    }
-    
-    // 打开方块
-    void EnableBlock(GameObject block)
-    {
-        if (block != null && !block.activeSelf)
-        {
-            // 先启用GameObject
-            block.SetActive(true);
-            
-            // 然后启用所有Renderer（确保视觉上显示）
-            Renderer[] renderers = block.GetComponentsInChildren<Renderer>(true);
-            foreach (Renderer r in renderers)
-            {
-                r.enabled = true;
-            }
-            
-            Debug.Log($"[BlockEditor] Block enabled: {block.name} (enabled {renderers.Length} renderers)");
-        }
-    }
+
     
     // 将世界坐标转换为网格坐标
     Vector3 GetGridPosition(Vector3 worldPosition)
@@ -703,7 +668,7 @@ public class BlockEditor : MonoBehaviour
     {
         blockDictionary.Clear();
         InitializeBlockDictionary();
-        Debug.Log($"[BlockEditor] Block dictionary refreshed - {blockDictionary.Count} blocks");
+        // Debug.Log($"[BlockEditor] Block dictionary refreshed - {blockDictionary.Count} blocks");
     }
     
     // 公共方法：显示所有方块
@@ -716,7 +681,7 @@ public class BlockEditor : MonoBehaviour
                 block.SetActive(true);
             }
         }
-        Debug.Log("[BlockEditor] All blocks shown");
+        // Debug.Log("[BlockEditor] All blocks shown");
     }
     
     // 公共方法：隐藏所有方块
@@ -729,6 +694,6 @@ public class BlockEditor : MonoBehaviour
                 block.SetActive(false);
             }
         }
-        Debug.Log("[BlockEditor] All blocks hidden");
+        // Debug.Log("[BlockEditor] All blocks hidden");
     }
 }

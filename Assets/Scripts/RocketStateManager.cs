@@ -139,10 +139,11 @@ public class RocketStateManager : MonoBehaviour
         int disabledCount = 0;
         int totalProcessed = 0;
         
-        // 如果没有保存的状态，启用所有方块（默认状态）
+        // 如果没有保存的状态，默认为单个方块
         if (blockStates.Count == 0)
         {
-            EnableAllBlocks(rocket);
+            Debug.Log("[RocketStateManager] 配置文件为空，初始化为单个方块");
+            InitializeToSingleBlock(rocket);
             yield break;
         }
         
@@ -202,9 +203,11 @@ public class RocketStateManager : MonoBehaviour
         StartCoroutine(ApplyRocketStateAsync());
     }
     
-    // 启用所有方块（默认状态）
-    void EnableAllBlocks(GameObject rocket)
+    // 初始化为单个方块（Layer1的Cube13）
+    void InitializeToSingleBlock(GameObject rocket)
     {
+        int disabledCount = 0;
+        
         for (int layer = 1; layer <= 5; layer++)
         {
             Transform layerTransform = rocket.transform.Find($"Layer{layer}");
@@ -214,16 +217,26 @@ public class RocketStateManager : MonoBehaviour
             {
                 if (child.name.Contains("Cube"))
                 {
-                    child.gameObject.SetActive(true);
+                    // 只有Layer1的Cube13保持开启
+                    bool shouldEnable = (layer == 1 && child.name == "Cube13");
+                    
+                    child.gameObject.SetActive(shouldEnable);
                     Renderer[] renderers = child.GetComponentsInChildren<Renderer>(true);
                     foreach (Renderer r in renderers)
                     {
-                        r.enabled = true;
+                        r.enabled = shouldEnable;
                     }
+                    
+                    if (!shouldEnable)
+                        disabledCount++;
                 }
             }
         }
-        Debug.Log($"[RocketStateManager] All blocks enabled (default state)");
+        
+        Debug.Log($"[RocketStateManager] 初始化为单个方块（Layer1/Cube13），禁用了{disabledCount}个方块");
+        
+        // 保存这个默认状态
+        SaveRocketState();
     }
     
     // 保存状态到文件（格式：层级+方块号+启用状态）
@@ -328,6 +341,60 @@ public class RocketStateManager : MonoBehaviour
         if (instance != null)
         {
             instance.ApplyRocketState();
+        }
+    }
+    
+    // 公共方法：重置为单个方块并保存
+    public static void ResetToSingleBlock()
+    {
+        if (instance != null)
+        {
+            GameObject rocket = GameObject.Find(instance.rocketContainerName);
+            if (rocket != null)
+            {
+                instance.InitializeToSingleBlock(rocket);
+                Debug.Log("[RocketStateManager] 已重置为单个方块并保存");
+            }
+            else
+            {
+                Debug.LogWarning("[RocketStateManager] 未找到Rocket，无法重置");
+            }
+        }
+    }
+    
+    // 公共方法：清空配置文件并重新加载（会初始化为单个方块）
+    public static void ClearAndReload()
+    {
+        if (instance != null)
+        {
+            // 清空内存中的状态
+            instance.blockStates.Clear();
+            
+            // 清空文件
+            try
+            {
+                if (File.Exists(instance.saveFilePath))
+                {
+                    File.WriteAllText(instance.saveFilePath, "");
+                    Debug.Log($"[RocketStateManager] 配置文件已清空: {instance.saveFilePath}");
+                    
+                    #if UNITY_EDITOR
+                    UnityEditor.AssetDatabase.Refresh();
+                    #endif
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[RocketStateManager] 清空文件失败: {e.Message}");
+            }
+            
+            // 重新加载并应用（会初始化为单个方块因为文件为空）
+            GameObject rocket = GameObject.Find(instance.rocketContainerName);
+            if (rocket != null)
+            {
+                instance.InitializeToSingleBlock(rocket);
+                Debug.Log("[RocketStateManager] 已清空配置文件并重新初始化为单个方块");
+            }
         }
     }
 }

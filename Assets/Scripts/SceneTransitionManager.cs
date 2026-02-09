@@ -129,10 +129,24 @@ public class SceneTransitionManager : MonoBehaviour
         // 4. 短暂延迟，确保所有对象初始化完成
         yield return new WaitForSeconds(0.1f);
         
+        // 4.5 强制更新光照（修复场景切换后光影不正常的问题）
+        UpdateLighting();
+        
         // 5. 淡入（显示场景）
         yield return StartCoroutine(FadeIn());
         
         isTransitioning = false;
+    }
+    
+    /// <summary>
+    /// 强制更新光照系统
+    /// </summary>
+    void UpdateLighting()
+    {
+        // 强制更新光照和天空盒
+        DynamicGI.UpdateEnvironment();
+        RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Skybox;
+        DynamicGI.UpdateEnvironment();
     }
     
     /// <summary>

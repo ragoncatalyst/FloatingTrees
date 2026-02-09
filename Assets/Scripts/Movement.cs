@@ -365,30 +365,48 @@ public class Movement : MonoBehaviour
             
             // 施加爆炸力（基于撞击速度）
             Vector3 explosionDirection = (child.position - transform.position).normalized;
-            if (explosionDirection.magnitude < 0.1f)
+            
+            // 如果方块离中心太近（比如0.5米），随机一个方向
+            // 这对单个方块特别重要
+            if ((child.position - transform.position).magnitude < 0.5f)
             {
-                // 如果方块在中心，随机一个方向
                 explosionDirection = new Vector3(
                     UnityEngine.Random.Range(-1f, 1f),
-                    UnityEngine.Random.Range(-1f, 1f),
+                    UnityEngine.Random.Range(0.5f, 1f),  // 上方偏向，避免直接掉下去
                     UnityEngine.Random.Range(-1f, 1f)
                 ).normalized;
+                Debug.Log($"<color=magenta>★ {child.name} 离中心太近，使用随机爆炸方向: {explosionDirection}</color>");
             }
             
             // 添加随机偏移（±20%）使爆炸更自然
             float randomFactor = UnityEngine.Random.Range(0.8f, 1.2f);
             float explosionForce = calculatedExplosionForce * randomFactor;
+            
+            // 确保有最小爆炸力（即使速度很小）
+            float minExplosionForce = 300f;  // 最小300的爆炸力
+            if (explosionForce < minExplosionForce)
+            {
+                explosionForce = minExplosionForce;
+                Debug.Log($"<color=yellow>★ {child.name} 爆炸力太小，使用最小值: {minExplosionForce}</color>");
+            }
+            
             childRb.AddForce(explosionDirection * explosionForce, ForceMode.Impulse);
             
+            // 添加额外的向上爆炸力，确保方块会弹起（对单个方块特别有用）
+            Vector3 upwardForce = Vector3.up * (explosionForce * 0.3f);  // 30%的向上力
+            childRb.AddForce(upwardForce, ForceMode.Impulse);
+            
             // 添加随机旋转力（基于速度）
+            float minTorque = 50f;  // 最小扭矩
+            float actualTorque = Mathf.Max(calculatedTorque, minTorque);
             Vector3 randomTorque = new Vector3(
-                UnityEngine.Random.Range(-calculatedTorque, calculatedTorque),
-                UnityEngine.Random.Range(-calculatedTorque, calculatedTorque),
-                UnityEngine.Random.Range(-calculatedTorque, calculatedTorque)
+                UnityEngine.Random.Range(-actualTorque, actualTorque),
+                UnityEngine.Random.Range(-actualTorque, actualTorque),
+                UnityEngine.Random.Range(-actualTorque, actualTorque)
             );
             childRb.AddTorque(randomTorque, ForceMode.Impulse);
             
-            Debug.Log($"<color=red>★ {child.name} EXPLODED! Force: {explosionForce:F0}, Direction: {explosionDirection}</color>");
+            Debug.Log($"<color=red>★ {child.name} EXPLODED! Force: {explosionForce:F0}, Direction: {explosionDirection}, Upward: {upwardForce.magnitude:F0}, Torque: {actualTorque:F0}</color>");
         }
         
         // 停止同步子物体（不再调用SynchronizeChildRigidbodies）

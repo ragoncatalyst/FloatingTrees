@@ -71,12 +71,6 @@ public class LayersManager : MonoBehaviour
         {
             ShowAllLayers();
         }
-        
-        // 检测/键（只显示Layer1的Cube13）
-        if (Input.GetKeyDown(KeyCode.Slash))
-        {
-            ShowOnlyCube13();
-        }
     }
     
     void HandleLayerPress(int layerIndex)

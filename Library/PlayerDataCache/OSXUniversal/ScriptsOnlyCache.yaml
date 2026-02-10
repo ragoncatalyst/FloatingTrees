@@ -5,17 +5,19 @@ ScriptsOnlyBuild:
     - CamaraFollow
     - ChildCollisionForwarder
     - CollisionHandler
-    - Crosshair
+    - DebugKeyManager
+    - DebugResetStatus
     - LayersManager
+    - Menu
     - Movement
     - Navigator
     - ObstacleTransparency
     - RefitManager
     - Resulting
+    - RocketStateManager
     - SceneSwitcher
-    - StorageManager
-    Unity.ProBuilder.Editor.dll:
-    - UnityEditor.ProBuilder.DimensionsEditor
+    - SceneTransitionManager
+    - StatusCompare
     Unity.Rider.Editor.dll:
     - Packages.Rider.Editor.UnitTesting.CallbackData
     Unity.TextMeshPro:
@@ -26,6 +28,9 @@ ScriptsOnlyBuild:
     - TMPro.TMP_StyleSheet
     Unity.TextMeshPro.dll:
     - TMPro.TMP_FontAsset
+    - TMPro.TMP_Settings
+    - TMPro.TMP_SpriteAsset
+    - TMPro.TMP_StyleSheet
     - TMPro.TextMeshProUGUI
     UnityEditor.Graphs.dll:
     - UnityEditor.Graphs.AnimationBlendTree.Graph
@@ -40,6 +45,7 @@ ScriptsOnlyBuild:
     UnityEngine.UI.dll:
     - UnityEngine.EventSystems.EventSystem
     - UnityEngine.EventSystems.StandaloneInputModule
+    - UnityEngine.UI.Button
     - UnityEngine.UI.CanvasScaler
     - UnityEngine.UI.GraphicRaycaster
     - UnityEngine.UI.Image
@@ -61,7 +67,9 @@ ScriptsOnlyBuild:
     - TMPro.TMP_Style
     - TMPro.VertexGradient
     UnityEngine.CoreModule:
+    - UnityEngine.Events.ArgumentCache
     - UnityEngine.Events.PersistentCallGroup
+    - UnityEngine.Events.PersistentListenerMode
     UnityEngine.TextCoreFontEngineModule:
     - UnityEngine.TextCore.FaceInfo
     - UnityEngine.TextCore.Glyph
@@ -69,12 +77,19 @@ ScriptsOnlyBuild:
     - UnityEngine.TextCore.GlyphRect
     UnityEngine.UI:
     - UnityEngine.UI.AnimationTriggers
+    - UnityEngine.UI.Button/ButtonClickedEvent
     - UnityEngine.UI.ColorBlock
     - UnityEngine.UI.MaskableGraphic/CullStateChangedEvent
     - UnityEngine.UI.Navigation
     - UnityEngine.UI.Slider/SliderEvent
     - UnityEngine.UI.SpriteState
-  methodsToPreserve: []
+  methodsToPreserve:
+  - assembly: Assembly-CSharp
+    fullTypeName: Menu
+    methodName: CloseAllPanels
+  - assembly: Assembly-CSharp
+    fullTypeName: Menu
+    methodName: CloseAllPanels
   sceneClasses:
     Assets/Scenes/Main.unity:
     - Class: 1
@@ -95,8 +110,6 @@ ScriptsOnlyBuild:
       Script: {instanceID: 0}
     - Class: 48
       Script: {instanceID: 0}
-    - Class: 49
-      Script: {instanceID: 0}
     - Class: 54
       Script: {instanceID: 0}
     - Class: 65
@@ -112,54 +125,129 @@ ScriptsOnlyBuild:
     - Class: 108
       Script: {instanceID: 0}
     - Class: 114
-      Script: {instanceID: 1648}
+      Script: {instanceID: 1650}
     - Class: 114
-      Script: {instanceID: 2198}
+      Script: {instanceID: 2078}
     - Class: 114
-      Script: {instanceID: 2312}
+      Script: {instanceID: 2786}
     - Class: 114
-      Script: {instanceID: 2784}
+      Script: {instanceID: 2852}
     - Class: 114
-      Script: {instanceID: 2848}
+      Script: {instanceID: 3024}
     - Class: 114
-      Script: {instanceID: 3020}
+      Script: {instanceID: 3056}
     - Class: 114
-      Script: {instanceID: 3050}
+      Script: {instanceID: 3466}
     - Class: 114
-      Script: {instanceID: 3634}
+      Script: {instanceID: 3470}
     - Class: 114
-      Script: {instanceID: 3832}
+      Script: {instanceID: 3644}
     - Class: 114
-      Script: {instanceID: 4368}
+      Script: {instanceID: 3842}
     - Class: 114
-      Script: {instanceID: 4490}
+      Script: {instanceID: 4178}
     - Class: 114
-      Script: {instanceID: 4780}
+      Script: {instanceID: 4708}
     - Class: 114
-      Script: {instanceID: 5148}
+      Script: {instanceID: 5162}
     - Class: 114
-      Script: {instanceID: 5546}
+      Script: {instanceID: 5560}
     - Class: 114
-      Script: {instanceID: 5624}
+      Script: {instanceID: 5638}
     - Class: 114
-      Script: {instanceID: 6176}
+      Script: {instanceID: 6190}
     - Class: 114
-      Script: {instanceID: 6266}
+      Script: {instanceID: 6280}
     - Class: 114
-      Script: {instanceID: 6446}
+      Script: {instanceID: 6460}
     - Class: 114
-      Script: {instanceID: 6834}
+      Script: {instanceID: 6848}
     - Class: 114
-      Script: {instanceID: 8070}
+      Script: {instanceID: 8088}
     - Class: 114
-      Script: {instanceID: 24706}
+      Script: {instanceID: 27094}
     - Class: 114
-      Script: {instanceID: 127762}
+      Script: {instanceID: 27096}
+    - Class: 114
+      Script: {instanceID: 27100}
     - Class: 115
       Script: {instanceID: 0}
     - Class: 128
       Script: {instanceID: 0}
     - Class: 135
+      Script: {instanceID: 0}
+    - Class: 157
+      Script: {instanceID: 0}
+    - Class: 196
+      Script: {instanceID: 0}
+    - Class: 213
+      Script: {instanceID: 0}
+    - Class: 222
+      Script: {instanceID: 0}
+    - Class: 223
+      Script: {instanceID: 0}
+    - Class: 224
+      Script: {instanceID: 0}
+    Assets/Scenes/Menu.unity:
+    - Class: 1
+      Script: {instanceID: 0}
+    - Class: 4
+      Script: {instanceID: 0}
+    - Class: 20
+      Script: {instanceID: 0}
+    - Class: 21
+      Script: {instanceID: 0}
+    - Class: 28
+      Script: {instanceID: 0}
+    - Class: 48
+      Script: {instanceID: 0}
+    - Class: 49
+      Script: {instanceID: 0}
+    - Class: 81
+      Script: {instanceID: 0}
+    - Class: 89
+      Script: {instanceID: 0}
+    - Class: 104
+      Script: {instanceID: 0}
+    - Class: 108
+      Script: {instanceID: 0}
+    - Class: 114
+      Script: {instanceID: 1650}
+    - Class: 114
+      Script: {instanceID: 2314}
+    - Class: 114
+      Script: {instanceID: 2786}
+    - Class: 114
+      Script: {instanceID: 2810}
+    - Class: 114
+      Script: {instanceID: 3024}
+    - Class: 114
+      Script: {instanceID: 3370}
+    - Class: 114
+      Script: {instanceID: 3466}
+    - Class: 114
+      Script: {instanceID: 3470}
+    - Class: 114
+      Script: {instanceID: 4178}
+    - Class: 114
+      Script: {instanceID: 4380}
+    - Class: 114
+      Script: {instanceID: 4502}
+    - Class: 114
+      Script: {instanceID: 4708}
+    - Class: 114
+      Script: {instanceID: 4794}
+    - Class: 114
+      Script: {instanceID: 5638}
+    - Class: 114
+      Script: {instanceID: 6280}
+    - Class: 114
+      Script: {instanceID: 6460}
+    - Class: 114
+      Script: {instanceID: 6848}
+    - Class: 115
+      Script: {instanceID: 0}
+    - Class: 128
       Script: {instanceID: 0}
     - Class: 157
       Script: {instanceID: 0}
@@ -200,6 +288,8 @@ ScriptsOnlyBuild:
       Script: {instanceID: 0}
     - Class: 82
       Script: {instanceID: 0}
+    - Class: 83
+      Script: {instanceID: 0}
     - Class: 89
       Script: {instanceID: 0}
     - Class: 104
@@ -207,23 +297,29 @@ ScriptsOnlyBuild:
     - Class: 108
       Script: {instanceID: 0}
     - Class: 114
-      Script: {instanceID: 2784}
+      Script: {instanceID: 2786}
     - Class: 114
-      Script: {instanceID: 3050}
+      Script: {instanceID: 3042}
     - Class: 114
-      Script: {instanceID: 5244}
+      Script: {instanceID: 3056}
     - Class: 114
-      Script: {instanceID: 5778}
+      Script: {instanceID: 3466}
     - Class: 114
-      Script: {instanceID: 6176}
+      Script: {instanceID: 3470}
     - Class: 114
-      Script: {instanceID: 6720}
+      Script: {instanceID: 4178}
     - Class: 114
-      Script: {instanceID: 6834}
+      Script: {instanceID: 4708}
     - Class: 114
-      Script: {instanceID: 69116}
+      Script: {instanceID: 5258}
     - Class: 114
-      Script: {instanceID: 127762}
+      Script: {instanceID: 6190}
+    - Class: 114
+      Script: {instanceID: 6734}
+    - Class: 114
+      Script: {instanceID: 6848}
+    - Class: 114
+      Script: {instanceID: 6962}
     - Class: 115
       Script: {instanceID: 0}
     - Class: 157
@@ -305,10 +401,10 @@ ScriptsOnlyBuild:
     className: SimpleScript
   - hash:
       serializedVersion: 2
-      Hash: 40f87f487ea88d10602567b330f0254a
+      Hash: b19a010c5466d9a7909b6eacda05e73b
     assemblyName: Assembly-CSharp
     namespaceName: 
-    className: Crosshair
+    className: StatusCompare
   - hash:
       serializedVersion: 2
       Hash: b12640dfdb5966813e9dd838893e6c4a
@@ -389,6 +485,12 @@ ScriptsOnlyBuild:
     className: TimelineAsset
   - hash:
       serializedVersion: 2
+      Hash: 47a1a4129f4fa891cd58776052f65877
+    assemblyName: Assembly-CSharp
+    namespaceName: 
+    className: Menu
+  - hash:
+      serializedVersion: 2
       Hash: ada873da50974d1e7ce247ffb296b0f3
     assemblyName: Unity.VisualScripting.Core
     namespaceName: Unity.VisualScripting
@@ -441,6 +543,12 @@ ScriptsOnlyBuild:
     assemblyName: UnityEngine.UI
     namespaceName: UnityEngine.UI
     className: GraphicRaycaster
+  - hash:
+      serializedVersion: 2
+      Hash: e846489a75bd5924e0b8a8eb3d5198a5
+    assemblyName: Assembly-CSharp
+    namespaceName: 
+    className: DebugResetStatus
   - hash:
       serializedVersion: 2
       Hash: b9b54d7698c6b3c92d622004ce2e1787
@@ -531,6 +639,18 @@ ScriptsOnlyBuild:
     assemblyName: Unity.VisualScripting.Core
     namespaceName: Unity.VisualScripting
     className: UnityOnMouseDownMessageListener
+  - hash:
+      serializedVersion: 2
+      Hash: 1001bbfb0f0800e025ae718a365ecc97
+    assemblyName: Assembly-CSharp
+    namespaceName: 
+    className: SceneSwitcher
+  - hash:
+      serializedVersion: 2
+      Hash: 5a8fcd2e5e062234474568a56c534535
+    assemblyName: Assembly-CSharp
+    namespaceName: 
+    className: SceneTransitionManager
   - hash:
       serializedVersion: 2
       Hash: b6307dfc54cca9ba44f47185c578b0ce
@@ -659,6 +779,12 @@ ScriptsOnlyBuild:
     className: UnityOnPointerExitMessageListener
   - hash:
       serializedVersion: 2
+      Hash: 39a9c8fb37521a58fa9da4d6b7dce843
+    assemblyName: Assembly-CSharp
+    namespaceName: 
+    className: RocketStateManager
+  - hash:
+      serializedVersion: 2
       Hash: 1deda86fe7ffd8587afcfe68a02d034c
     assemblyName: Assembly-CSharp
     namespaceName: 
@@ -747,6 +873,12 @@ ScriptsOnlyBuild:
     assemblyName: Unity.TextMeshPro
     namespaceName: TMPro
     className: TMP_SubMeshUI
+  - hash:
+      serializedVersion: 2
+      Hash: cd40f3e1586ad6e15738fff3e4504326
+    assemblyName: Assembly-CSharp
+    namespaceName: 
+    className: DebugKeyManager
   - hash:
       serializedVersion: 2
       Hash: 9078325c2a6f6a2d9612ade897511860
@@ -1001,7 +1133,7 @@ ScriptsOnlyBuild:
     className: Benchmark02
   - hash:
       serializedVersion: 2
-      Hash: 398a61daabc9d5da1829970eea22da58
+      Hash: 87adbc382376de7f8247c64065c0e03a
     assemblyName: Assembly-CSharp
     namespaceName: 
     className: CamaraFollow
@@ -1097,6 +1229,12 @@ ScriptsOnlyBuild:
     className: BeforeAfterTestCommandState
   - hash:
       serializedVersion: 2
+      Hash: df157b5d3ca78320fc2652c5591bf1da
+    assemblyName: Assembly-CSharp
+    namespaceName: 
+    className: BlockEditor
+  - hash:
+      serializedVersion: 2
       Hash: 8bbce9932f67ad8e7f4eefec87800f94
     assemblyName: Unity.TextMeshPro
     namespaceName: TMPro
@@ -1107,6 +1245,12 @@ ScriptsOnlyBuild:
     assemblyName: Unity.ProBuilder
     namespaceName: UnityEngine.ProBuilder
     className: TriggerBehaviour
+  - hash:
+      serializedVersion: 2
+      Hash: dcb5a386982e7d3645a6cd4657a652cd
+    assemblyName: Assembly-CSharp
+    namespaceName: 
+    className: DebugCubeStructure
   - hash:
       serializedVersion: 2
       Hash: 7fdd3ee28e9042c3ec83463d0bb3b230
@@ -1377,20 +1521,9 @@ ScriptsOnlyBuild:
     assemblyName: Unity.VisualScripting.Core
     namespaceName: Unity.VisualScripting
     className: UnityOnSliderValueChangedMessageListener
-  - hash:
-      serializedVersion: 2
-      Hash: 565106594b8ed5ce723ac9b007e62e2b
-    assemblyName: Assembly-CSharp
-    namespaceName: 
-    className: BlockEditor
-  - hash:
-      serializedVersion: 2
-      Hash: 1001bbfb0f0800e025ae718a365ecc97
-    assemblyName: Assembly-CSharp
-    namespaceName: 
-    className: SceneSwitcher
   platform: 2
   scenePathNames:
+  - Assets/Scenes/Menu.unity
   - Assets/Scenes/Main.unity
   - Assets/Scenes/Workshop.unity
-  playerPath: /Users/ra/Documents/FloatingTrees/FloatingTrees1.app
+  playerPath: /Users/ra/Documents/FloatingTrees/FloatingTrees_v0.1.1_alpha.app

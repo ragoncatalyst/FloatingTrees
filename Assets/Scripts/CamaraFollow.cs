@@ -60,6 +60,26 @@ public class CamaraFollow : MonoBehaviour
         // 反转索引映射：0->0, 1->3, 2->2, 3->1
         return (4 - rawIndex) % 4;
     }
+    
+    /// <summary>
+    /// 直接设置摄像头Y轴旋转角度（供RocketStateManager恢复位置时使用）
+    /// </summary>
+    /// <param name="angleIndex">角度索引 (0=0°, 1=90°, 2=180°, 3=270°)</param>
+    public void SetCameraAngle(int angleIndex)
+    {
+        // 反转索引映射回实际角度
+        int reversedIndex = (4 - angleIndex) % 4;
+        float targetAngle = reversedIndex * 90f;
+        
+        currentYRotation = targetAngle;
+        targetYRotation = targetAngle;
+        isTransitioning = false;
+        
+        // 立即更新摄像头位置
+        UpdateCameraPosition();
+        
+        Debug.Log($"[CamaraFollow] 摄像头角度已设置为索引 {angleIndex} ({targetAngle}°)");
+    }
 
     void Start()
     {

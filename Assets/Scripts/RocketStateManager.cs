@@ -17,14 +17,23 @@ public class RocketStateManager : MonoBehaviour
     [SerializeField] private string rocketContainerName = "Rocket";
     
     private string saveFilePath;
+    private string positionFilePath;
     // 存储格式：层级 -> 方块号 -> 是否启用
     private Dictionary<int, Dictionary<int, bool>> blockStates = new Dictionary<int, Dictionary<int, bool>>();
+    
+    // 存储Rocket的位置、旋转和摄像头角度（仅在Main场景使用）
+    private Vector3 savedRocketPosition = Vector3.zero;
+    private Quaternion savedRocketRotation = Quaternion.identity;
+    private float savedCameraYRotation = 0f;
+    private bool hasPositionData = false;
     
     void Awake()
     {
         // 设置保存文件路径到Assets文件夹
         saveFilePath = Path.Combine(Application.dataPath, "RocketStatus.txt");
+        positionFilePath = Path.Combine(Application.dataPath, "RocketPosition.txt");
         Debug.Log($"[RocketStateManager] Save file path: {saveFilePath}");
+        Debug.Log($"[RocketStateManager] Position file path: {positionFilePath}");
         
         // 单例模式 - 确保只有一个实例，并且在场景切换时不被销毁
         if (instance == null)
@@ -34,6 +43,7 @@ public class RocketStateManager : MonoBehaviour
             
             // 启动时加载保存的状态
             LoadStateFromFile();
+            LoadPositionFromFile();
             
             Debug.Log("[RocketStateManager] Initialized and set to DontDestroyOnLoad");
             
@@ -62,6 +72,18 @@ public class RocketStateManager : MonoBehaviour
     {
         // 使用协程异步应用状态，避免卡顿
         StartCoroutine(ApplyRocketStateAsync());
+        
+        // 如果是Main场景且有保存的位置数据，恢复位置
+        if (scene.name == "Main" && hasPositionData)
+        {
+            StartCoroutine(ApplyRocketPositionAsync());
+        }
+        
+        // 如果是Workshop场景且有保存的摄像头数据，恢复摄像头角度
+        if (scene.name == "Workshop" && hasPositionData)
+        {
+            StartCoroutine(ApplyCameraAngleAsync());
+        }
     }
     
     void UpdateLighting()
@@ -87,6 +109,13 @@ public class RocketStateManager : MonoBehaviour
         
         int totalSaved = 0;
         int disabledSaved = 0;
+        
+        // 保存位置和旋转（仅在Main场景）
+        string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        if (currentScene == "Main")
+        {
+            SaveRocketPosition(rocket);
+        }
         
         // 遍历所有Layer（Layer1-Layer5）
         for (int layer = 1; layer <= 5; layer++)
@@ -414,6 +443,184 @@ public class RocketStateManager : MonoBehaviour
                 instance.InitializeToSingleBlock(rocket);
                 Debug.Log("[RocketStateManager] 已清空配置文件并重新初始化为单个方块");
             }
+        }
+    }
+    
+    // ========== 位置和摄像头方向保存/恢复 ==========
+    
+    /// <summary>
+    /// 保存Rocket的位置、旋转和摄像头角度
+    /// </summary>
+    void SaveRocketPosition(GameObject rocket)
+    {
+        if (rocket == null) return;
+        
+        savedRocketPosition = rocket.transform.position;
+        savedRocketRotation = rocket.transform.rotation;
+        
+        // 获取摄像头角度
+        CamaraFollow cameraFollow = FindObjectOfType<CamaraFollow>();
+        if (cameraFollow != null)
+        {
+            savedCameraYRotation = cameraFollow.GetCurrentAngleIndex() * 90f;
+        }
+        else
+        {
+            savedCameraYRotation = 0f;
+        }
+        
+        hasPositionData = true;
+        
+        // 保存到文件
+        SavePositionToFile();
+        
+        Debug.Log($"[RocketStateManager] 保存位置: {savedRocketPosition}, 旋转: {savedRocketRotation.eulerAngles}, 摄像头: {savedCameraYRotation}°");
+    }
+    
+    /// <summary>
+    /// 异步应用保存的Rocket位置和摄像头角度
+    /// </summary>
+    IEnumerator ApplyRocketPositionAsync()
+    {
+        yield return new WaitForSeconds(0.2f); // 等待场景完全初始化
+        
+        GameObject rocket = GameObject.Find(rocketContainerName);
+        if (rocket == null)
+        {
+            Debug.LogWarning("[RocketStateManager] 无法恢复位置：未找到Rocket");
+            yield break;
+        }
+        
+        // 恢复位置和旋转
+        rocket.transform.position = savedRocketPosition;
+        rocket.transform.rotation = savedRocketRotation;
+        
+        // 恢复摄像头角度
+        CamaraFollow cameraFollow = FindObjectOfType<CamaraFollow>();
+        if (cameraFollow != null)
+        {
+            // 通过反射或公共方法设置摄像头角度
+            // 这里需要在CamaraFollow中添加一个公共方法来设置角度
+            StartCoroutine(RestoreCameraAngle(cameraFollow));
+        }
+        
+        Debug.Log($"[RocketStateManager] 恢复位置: {savedRocketPosition}, 旋转: {savedRocketRotation.eulerAngles}, 摄像头: {savedCameraYRotation}°");
+    }
+    
+    /// <summary>
+    /// 异步应用摄像头角度（仅摄像头，用于Workshop场景）
+    /// </summary>
+    IEnumerator ApplyCameraAngleAsync()
+    {
+        yield return new WaitForSeconds(0.2f); // 等待场景完全初始化
+        
+        // 恢复摄像头角度
+        CamaraFollow cameraFollow = FindObjectOfType<CamaraFollow>();
+        if (cameraFollow != null)
+        {
+            StartCoroutine(RestoreCameraAngle(cameraFollow));
+        }
+        else
+        {
+            Debug.LogWarning("[RocketStateManager] Workshop场景中未找到CamaraFollow");
+        }
+    }
+    
+    /// <summary>
+    /// 恢复摄像头角度
+    /// </summary>
+    IEnumerator RestoreCameraAngle(CamaraFollow cameraFollow)
+    {
+        yield return null; // 等待一帧
+        
+        // 计算需要旋转到的角度索引 (0-3)
+        int targetIndex = Mathf.RoundToInt(savedCameraYRotation / 90f) % 4;
+        
+        // 直接设置摄像头角度
+        cameraFollow.SetCameraAngle(targetIndex);
+        
+        Debug.Log($"[RocketStateManager] 摄像头已恢复到角度索引 {targetIndex} ({savedCameraYRotation}°)");
+    }
+    
+    /// <summary>
+    /// 保存位置到文件
+    /// </summary>
+    void SavePositionToFile()
+    {
+        try
+        {
+            List<string> lines = new List<string>();
+            lines.Add($"POS:{savedRocketPosition.x:F3},{savedRocketPosition.y:F3},{savedRocketPosition.z:F3}");
+            lines.Add($"ROT:{savedRocketRotation.eulerAngles.x:F3},{savedRocketRotation.eulerAngles.y:F3},{savedRocketRotation.eulerAngles.z:F3}");
+            lines.Add($"CAM:{savedCameraYRotation:F1}");
+            
+            File.WriteAllLines(positionFilePath, lines);
+            
+            #if UNITY_EDITOR
+            UnityEditor.AssetDatabase.Refresh();
+            #endif
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[RocketStateManager] 保存位置失败: {e.Message}");
+        }
+    }
+    
+    /// <summary>
+    /// 从文件加载位置
+    /// </summary>
+    void LoadPositionFromFile()
+    {
+        try
+        {
+            if (!File.Exists(positionFilePath))
+            {
+                Debug.Log("[RocketStateManager] 位置文件不存在");
+                hasPositionData = false;
+                return;
+            }
+            
+            string[] lines = File.ReadAllLines(positionFilePath);
+            
+            foreach (string line in lines)
+            {
+                if (line.StartsWith("POS:"))
+                {
+                    string[] parts = line.Substring(4).Split(',');
+                    if (parts.Length == 3)
+                    {
+                        savedRocketPosition = new Vector3(
+                            float.Parse(parts[0]),
+                            float.Parse(parts[1]),
+                            float.Parse(parts[2])
+                        );
+                    }
+                }
+                else if (line.StartsWith("ROT:"))
+                {
+                    string[] parts = line.Substring(4).Split(',');
+                    if (parts.Length == 3)
+                    {
+                        savedRocketRotation = Quaternion.Euler(
+                            float.Parse(parts[0]),
+                            float.Parse(parts[1]),
+                            float.Parse(parts[2])
+                        );
+                    }
+                }
+                else if (line.StartsWith("CAM:"))
+                {
+                    savedCameraYRotation = float.Parse(line.Substring(4));
+                }
+            }
+            
+            hasPositionData = true;
+            Debug.Log($"[RocketStateManager] 加载位置成功: {savedRocketPosition}");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[RocketStateManager] 加载位置失败: {e.Message}");
+            hasPositionData = false;
         }
     }
 }

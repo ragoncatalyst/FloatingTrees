@@ -19487,6 +19487,26 @@ PrefabInstance:
       propertyPath: explosionForceMultiplier
       value: 2
       objectReference: {fileID: 0}
+    - target: {fileID: 5096602361105759905, guid: 563418766deb1492b816cde06401b7c8, type: 3}
+      propertyPath: explosionClips.Array.size
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 5096602361105759905, guid: 563418766deb1492b816cde06401b7c8, type: 3}
+      propertyPath: explosionClips.Array.data[0]
+      value: 
+      objectReference: {fileID: 8300000, guid: 12b606f6e973141b0bb9dfbe9f610b0f, type: 3}
+    - target: {fileID: 5096602361105759905, guid: 563418766deb1492b816cde06401b7c8, type: 3}
+      propertyPath: explosionClips.Array.data[1]
+      value: 
+      objectReference: {fileID: 8300000, guid: 3561a9b5cc7f24a3496c87c333250e5f, type: 3}
+    - target: {fileID: 5096602361105759905, guid: 563418766deb1492b816cde06401b7c8, type: 3}
+      propertyPath: explosionClips.Array.data[2]
+      value: 
+      objectReference: {fileID: 8300000, guid: 1901a6a398f074d7e9ac31cfeb0ccc2d, type: 3}
+    - target: {fileID: 5096602361105759905, guid: 563418766deb1492b816cde06401b7c8, type: 3}
+      propertyPath: explosionClips.Array.data[3]
+      value: 
+      objectReference: {fileID: 8300000, guid: 87ea988ee3d684084adc1eb07fdcdbb0, type: 3}
     - target: {fileID: 6561504342538457432, guid: 563418766deb1492b816cde06401b7c8, type: 3}
       propertyPath: m_LocalPosition.x
       value: -0.99

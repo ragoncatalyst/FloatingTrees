@@ -26,7 +26,13 @@ public class Movement : MonoBehaviour
     [SerializeField] float debrisMass = 10f;                // 碎片质量
     [SerializeField] float debrisDrag = 0.1f;               // 碎片线性阻力
     [SerializeField] float debrisAngularDrag = 0.3f;        // 碎片角阻力
-    
+
+    [Header("Audio")]
+    [Tooltip("可选：爆炸音效列表，运行时会在这些音效中随机选一个播放。留空则不播放声音。")]
+    [SerializeField] private AudioClip[] explosionClips;
+    [Range(0f,1f)]
+    [SerializeField] private float explosionVolume = 1f;
+
     private Rigidbody parentRigidbody;                    // 父物体的Rigidbody（用于驱动整体运动）
     private Rigidbody[] childRigidbodies;                 // 所有子物体的Rigidbody（用于碰撞检测）
     
@@ -333,6 +339,26 @@ public class Movement : MonoBehaviour
         catch (System.Exception e)
         {
             Debug.LogWarning($"[Movement] Failed to mark explosion origin: {e.Message}");
+        }
+
+        // 播放爆炸音效（在多个导入的音效中随机选择一个）
+        if (explosionClips != null && explosionClips.Length > 0)
+        {
+            AudioClip clip = explosionClips[UnityEngine.Random.Range(0, explosionClips.Length)];
+            if (clip != null)
+            {
+                if (myAudioSource != null)
+                {
+                    myAudioSource.PlayOneShot(clip, explosionVolume);
+                }
+                else
+                {
+                    // 回退到静态播放以保证能听到声音（3D 空间位置在火箭处）
+                    AudioSource.PlayClipAtPoint(clip, transform.position, explosionVolume);
+                }
+
+                Debug.Log($"[Movement] Played explosion clip: {clip.name}");
+            }
         }
 
         // 根据撞击速度计算爆炸力和扭矩

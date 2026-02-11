@@ -42,7 +42,49 @@ public class RocketStateManager : MonoBehaviour
 
     // 当需要进行程序化写盘（例如 FactoryReset）时，抑制 SaveStateToFile 中的自动 Main-position 捕获
     private bool suppressAutoMainCapture = false;
-    
+
+    // Helper: 找到场景中的 Rocket（包含回退搜索），返回 null 则说明未找到
+    GameObject FindRocket()
+    {
+        GameObject rocket = GameObject.Find(rocketContainerName);
+        if (rocket != null) return rocket;
+
+        var roots = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
+        foreach (var root in roots)
+        {
+            var t = root.transform.Find(rocketContainerName);
+            if (t != null) return t.gameObject;
+        }
+
+        return null;
+    }
+
+    // Helper: 在指定位置向下探测地面高度（返回 true 并输出 groundY 表示命中）
+    bool TryProbeGroundY(Vector3 probePos, out float groundY)
+    {
+        groundY = 0f;
+        RaycastHit hit;
+        if (Physics.Raycast(probePos + Vector3.up * 5f, Vector3.down, out hit, 50f))
+        {
+            groundY = hit.point.y;
+            return true;
+        }
+        return false;
+    }
+
+    // Helper: 确保 Rocket 的所有子碰撞体启用且非触发器（用于放置/恢复后调用）
+    void EnsureRocketCollidersEnabled(GameObject rocket)
+    {
+        if (rocket == null) return;
+        Collider[] cols = rocket.GetComponentsInChildren<Collider>(true);
+        foreach (var c in cols)
+        {
+            if (c == null) continue;
+            c.enabled = true;
+            c.isTrigger = false;
+        }
+    }
+
     void Awake()
     {
         // 设置保存文件路径到Assets文件夹
@@ -118,20 +160,7 @@ public class RocketStateManager : MonoBehaviour
     // 捕获当前Rocket的位置用于写入POS（不会影响MAINPOS逻辑）
     bool TryCaptureCurrentPositionForSave()
     {
-        GameObject rocket = GameObject.Find(rocketContainerName);
-        if (rocket == null)
-        {
-            var roots = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
-            foreach (var root in roots)
-            {
-                var t = root.transform.Find(rocketContainerName);
-                if (t != null)
-                {
-                    rocket = t.gameObject;
-                    break;
-                }
-            }
-        }
+        GameObject rocket = FindRocket();
         if (rocket == null) return false;
 
         Vector3 pos = rocket.transform.position;
@@ -141,10 +170,10 @@ public class RocketStateManager : MonoBehaviour
         if (!IsMainPositionSafe(pos)) return false;
 
         // 抬高到地面之上以避免穿地
-        RaycastHit hit;
-        if (Physics.Raycast(pos + Vector3.up * 2f, Vector3.down, out hit, 5f))
+        float groundY;
+        if (TryProbeGroundY(pos, out groundY))
         {
-            pos.y = Mathf.Max(pos.y, hit.point.y + 0.35f);
+            pos.y = Mathf.Max(pos.y, groundY + 0.35f);
         }
 
         savedCurrentPosition = pos;
@@ -156,22 +185,7 @@ public class RocketStateManager : MonoBehaviour
     bool TryCaptureMainPosition(bool force = false)
     {
         // 保留原有Main捕获逻辑（用于MAINPOS）
-        GameObject rocket = GameObject.Find(rocketContainerName);
-        // 回退：在场景中查找（包含可能被禁用的对象）
-        if (rocket == null)
-        {
-            var roots = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
-            foreach (var root in roots)
-            {
-                var t = root.transform.Find(rocketContainerName);
-                if (t != null)
-                {
-                    rocket = t.gameObject;
-                    break;
-                }
-            }
-        }
-
+        GameObject rocket = FindRocket();
         if (rocket == null)
         {
             Debug.LogWarning("[RocketStateManager] TryCaptureMainPosition: Rocket not found in scene");
@@ -193,10 +207,9 @@ public class RocketStateManager : MonoBehaviour
 
         // 非强制模式下保留原有的安全性调整逻辑
         // 若位置高度非常接近地面，向上微调（避免放进地面）
-        RaycastHit hit;
-        if (Physics.Raycast(pos + Vector3.up * 2f, Vector3.down, out hit, 5f))
+        float groundY;
+        if (TryProbeGroundY(pos, out groundY))
         {
-            float groundY = hit.point.y;
             if (pos.y < groundY + 0.4f)
             {
                 pos.y = groundY + 0.4f; // 抬高到地面之上
@@ -334,7 +347,7 @@ public class RocketStateManager : MonoBehaviour
         yield return null;
         
         // 查找Rocket容器
-        GameObject rocket = GameObject.Find(rocketContainerName);
+        GameObject rocket = FindRocket();
         if (rocket == null)
         {
             Debug.LogWarning($"[RocketStateManager] Rocket container '{rocketContainerName}' not found in scene!");
@@ -578,21 +591,8 @@ public class RocketStateManager : MonoBehaviour
             parentRb.WakeUp();
         }
 
-        // 确保子碰撞体已启用且不是触发器（避免在放置后才发生穿模）
-        Collider[] myCollidersFinal = rocket.GetComponentsInChildren<Collider>(true);
-        if (myCollidersFinal == null || myCollidersFinal.Length == 0)
-        {
-            // 未找到子碰撞体——尝试让 Movement 补上（兼容持久化对象）
-            var mv = rocket.GetComponent<Movement>();
-            if (mv != null) mv.EnsureCollidersExist();
-            myCollidersFinal = rocket.GetComponentsInChildren<Collider>(true);
-        }
-        foreach (var mc in myCollidersFinal)
-        {
-            if (mc == null) continue;
-            mc.enabled = true;
-            mc.isTrigger = false;
-        }
+        // 使用统一 helper 确保碰撞体启用
+        EnsureRocketCollidersEnabled(rocket);
 
         // 清理子刚体速度（如果存在）
         var childRbs = rocket.GetComponentsInChildren<Rigidbody>(true);
@@ -603,20 +603,19 @@ public class RocketStateManager : MonoBehaviour
         }
 
         // 最后一遍向下检测：如果火箭明显陷入地形，则向上微调（保护玩家）
-        RaycastHit groundHit;
-        if (Physics.Raycast(rocket.transform.position + Vector3.up * 1f, Vector3.down, out groundHit, 50f))
+        float groundY;
+        if (TryProbeGroundY(rocket.transform.position, out groundY))
         {
-            float lowestDy = rocket.transform.position.y - groundHit.point.y;
+            float lowestDy = rocket.transform.position.y - groundY;
             if (lowestDy < 0.05f)
             {
                 // 正常或稍微接触，无需处理
             }
             else if (lowestDy < 0.45f)
             {
-                // 如果低于地面（负值）或嵌入则抬高到地面上方0.45m
-                if (rocket.transform.position.y < groundHit.point.y + 0.45f)
+                if (rocket.transform.position.y < groundY + 0.45f)
                 {
-                    rocket.transform.position = new Vector3(rocket.transform.position.x, groundHit.point.y + 0.45f, rocket.transform.position.z);
+                    rocket.transform.position = new Vector3(rocket.transform.position.x, groundY + 0.45f, rocket.transform.position.z);
                     Physics.SyncTransforms();
                     Debug.LogWarning($"[RocketStateManager] Detected rocket below ground after placement — nudged up to {rocket.transform.position}");
                 }
@@ -984,177 +983,11 @@ public class RocketStateManager : MonoBehaviour
         }
     }
     
-    // 公共方法：清空配置文件并重新加载（会初始化为单个方块）
-    public static void ClearAndReload()
-    {
-        if (instance != null)
-        {
-            // 简单清空（保留用于快速调试的行为）
-            instance.blockStates.Clear();
-            instance.hasCameraData = false;
-            instance.hasMainPosition = false;
-            instance.hasCurrentPosition = false;
-            instance.hasExploded = false;
-            
-            try
-            {
-                if (File.Exists(instance.saveFilePath))
-                {
-                    File.WriteAllText(instance.saveFilePath, "");
-                    Debug.Log($"[RocketStateManager] 配置文件已清空: {instance.saveFilePath}");
-                    #if UNITY_EDITOR
-                    UnityEditor.AssetDatabase.Refresh();
-                    #endif
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[RocketStateManager] 清空文件失败: {e.Message}");
-            }
-            
-            GameObject rocket = GameObject.Find(instance.rocketContainerName);
-            if (rocket != null)
-            {
-                instance.InitializeToSingleBlock(rocket);
-                Debug.Log("[RocketStateManager] 已清空配置文件并重新初始化为单个方块");
-            }
-        }
-    }
+    // NOTE: Debug/test helpers removed — ClearAndReload() and FactoryResetToDefaults() were test-only
+    // They have been deleted to remove test-only surface area. If you need similar behavior
+    // in production, reintroduce a clear, well-documented API here.
 
-    // 公共方法：执行出厂重置——删除/重写所有保存文件，恢复 RocketPosition.txt 中的默认位姿/摄像头/方块
-    public static void FactoryResetToDefaults()
-    {
-        if (instance == null) return;
-
-        Debug.Log("[RocketStateManager] Factory reset: restoring defaults and wiping user config...");
-
-        // 抑制自动捕获，避免在写盘时被当前场景的对象覆盖
-        instance.suppressAutoMainCapture = true;
-
-        // 清空内存状态
-        instance.blockStates.Clear();
-        instance.hasCameraData = false;
-        instance.hasMainPosition = false;
-        instance.hasCurrentPosition = false;
-        instance.hasExploded = false;
-
-        // 读取默认位姿（来自 RocketPosition.txt）
-        string posPath = Path.Combine(Application.dataPath, "RocketPosition.txt");
-        Vector3 defaultPos = Vector3.zero;
-        Quaternion defaultRot = Quaternion.identity;
-        float defaultCam = 0f;
-
-        try
-        {
-            if (File.Exists(posPath))
-            {
-                string[] lines = File.ReadAllLines(posPath);
-                foreach (var line in lines)
-                {
-                    if (line.StartsWith("POS:"))
-                    {
-                        var parts = line.Substring(4).Split(',');
-                        if (parts.Length >= 3)
-                        {
-                            float x, y, z;
-                            if (float.TryParse(parts[0], out x) && float.TryParse(parts[1], out y) && float.TryParse(parts[2], out z))
-                            {
-                                defaultPos = new Vector3(x, y, z);
-                            }
-                        }
-                    }
-                    else if (line.StartsWith("ROT:"))
-                    {
-                        var parts = line.Substring(4).Split(',');
-                        if (parts.Length >= 3)
-                        {
-                            float rx, ry, rz;
-                            if (float.TryParse(parts[0], out rx) && float.TryParse(parts[1], out ry) && float.TryParse(parts[2], out rz))
-                            {
-                                defaultRot = Quaternion.Euler(rx, ry, rz);
-                            }
-                        }
-                    }
-                    else if (line.StartsWith("CAM:"))
-                    {
-                        float.TryParse(line.Substring(4), out defaultCam);
-                        instance.hasCameraData = true;
-                        instance.savedCameraYRotation = defaultCam;
-                    }
-                }
-            }
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogWarning($"[RocketStateManager] Failed to read RocketPosition.txt: {e.Message}");
-        }
-
-        // 应用到场景中的 Rocket（如果存在）并初始化为单个方块
-        GameObject rocket = GameObject.Find(instance.rocketContainerName);
-        if (rocket != null)
-        {
-            rocket.transform.position = defaultPos;
-            rocket.transform.rotation = defaultRot;
-            instance.InitializeToSingleBlock(rocket);
-        }
-
-        // 删除/重写所有相关保存文件（彻底出厂化）
-        string[] filesToWipe = new string[] {
-            instance.saveFilePath, // RocketStatus.txt
-            Path.Combine(Application.dataPath, "RocketStatusMain.txt")
-        };
-
-        foreach (var f in filesToWipe)
-        {
-            try
-            {
-                if (File.Exists(f)) File.WriteAllText(f, "");
-                Debug.Log($"[RocketStateManager] Wiped: {f}");
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogWarning($"[RocketStateManager] Failed to wipe {f}: {e.Message}");
-            }
-        }
-
-        // 将默认 MAINPOS 和 CAM 写回到主保存文件，保持一致性
-        instance.savedMainPosition = defaultPos;
-        instance.savedMainRotation = defaultRot;
-        instance.hasMainPosition = true;
-
-        instance.SaveStateToFile();
-
-        // 完成，恢复自动捕获行为
-        instance.suppressAutoMainCapture = false;
-
-        Debug.Log("[RocketStateManager] Factory reset complete.");
-    }
-
-    // 新增：初始化序列 —— 等同于按下 '\\' 然后按 '/'（FactoryReset 然后 ResetToSingleBlock）
-    public static void Initialize()
-    {
-        if (instance == null) return;
-        instance.StartCoroutine(instance.InitializeSequenceCoroutine());
-    }
-
-    // Coroutine: perform factory reset then single-block reset with a short safety delay
-    IEnumerator InitializeSequenceCoroutine()
-    {
-        // 1) Factory reset (\)
-        FactoryResetToDefaults();
-
-        // 等待一帧以确保文件与场景状态被写入/应用
-        yield return null;
-
-        // 2) Reset to single block (/)
-        ResetToSingleBlock();
-
-        // 小延迟以保证场景对象被正确处理
-        yield return new WaitForSeconds(0.05f);
-
-        Debug.Log("[RocketStateManager] Initialize(): completed (\\ then /)");
-        yield return null;
-    }
+    // NOTE: Initialize() (test helper) removed. Use explicit APIs in gameplay code instead.
 
     // 等待场景物理（地形 / 碰撞体 / Chunk）就绪的辅助协程
     // - 在目标位置周围检测到非 Rocket 的碰撞体或向下射线命中地面则视为就绪

@@ -138,12 +138,7 @@ public class SceneTransitionManager : MonoBehaviour
         // 5. 淡入（显示场景）
         yield return StartCoroutine(FadeIn());
 
-        // 6. 自动初始化：如果运行时从 Menu 切到 Main，则按用户要求自动执行初始化（\ then /）
-        if (fromScene == "Menu" && sceneName == "Main")
-        {
-            Debug.Log("[SceneTransitionManager] Detected runtime Menu->Main transition — auto-initializing Rocket");
-            RocketStateManager.Initialize();
-        }
+        // Auto-initialize removed (test-only) — runtime Menu->Main no longer forces test initialization.
 
         isTransitioning = false;
     }

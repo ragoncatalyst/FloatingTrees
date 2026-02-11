@@ -17,11 +17,6 @@ public class DebugKeyManager : MonoBehaviour
             RocketStateManager.ResetToSingleBlock();
         }
         
-        // \ 键：出厂重置 —— 清空所有用户配置并恢复默认位姿/摄像头/方块
-        if (Input.GetKeyDown(KeyCode.Backslash))
-        {
-            Debug.Log("[DebugKeyManager] 按下\\键，执行出厂重置（Factory Reset）");
-            RocketStateManager.FactoryResetToDefaults();
-        }
+        // Backslash debug shortcut removed (test-only)
     }
 }

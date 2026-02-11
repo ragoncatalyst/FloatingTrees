@@ -329,7 +329,10 @@ public class Movement : MonoBehaviour
     public void DetachChildRigidbodies(float impactSpeed)
     {
         Debug.Log($"<color=red>★★★ DETACHING CHILD RIGIDBODIES - EXPLOSION! Impact Speed: {impactSpeed:F2} m/s ★★★</color>");
-        
+
+        // 保障性调用：确保所有子碰撞体存在（避免后续重复创建代码）
+        EnsureCollidersExist();
+
         // 立即记录爆炸发生的精确变换（确保 RocketStateManager 有可靠的爆炸源位置信息）
         try
         {
@@ -409,20 +412,14 @@ public class Movement : MonoBehaviour
                 Debug.Log($"<color=cyan>★ {child.name} inherited velocity: {childRb.velocity.magnitude:F2} m/s</color>");
             }
             
-            // 添加Collider（如果没有）
+            // Collider 已由 EnsureCollidersExist() 保障——仅校准参数
             BoxCollider childCollider = child.GetComponent<BoxCollider>();
-            if (childCollider == null)
+            if (childCollider != null)
             {
-                childCollider = child.gameObject.AddComponent<BoxCollider>();
-                Debug.Log($"<color=yellow>★ Added BoxCollider to {child.name}</color>");
+                childCollider.isTrigger = false;
+                childCollider.center = Vector3.zero;
+                childCollider.size = Vector3.one;
             }
-            
-            // 确保Collider设置正确
-            childCollider.isTrigger = false;
-            
-            // 重置Collider为默认大小（适配MeshRenderer/Renderer）
-            childCollider.center = Vector3.zero;
-            childCollider.size = Vector3.one;
             
             // 强制唤醒Rigidbody，确保物理计算立即生效
             childRb.WakeUp();
@@ -523,12 +520,8 @@ public class Movement : MonoBehaviour
             if (initialLocalRotations.ContainsKey(child))
                 child.localRotation = initialLocalRotations[child];
 
-            // 确保有Collider
-            BoxCollider bc = child.GetComponent<BoxCollider>();
-            if (bc == null) bc = child.gameObject.AddComponent<BoxCollider>();
-            bc.isTrigger = false;
-
-            // 确保有碰撞转发器
+            // 确保子物体有碰撞体与转发器（使用统一 helper）
+            EnsureCollidersExist();
             ChildCollisionForwarder f = child.GetComponent<ChildCollisionForwarder>();
             if (f == null) f = child.gameObject.AddComponent<ChildCollisionForwarder>();
             f.SetParent(this.gameObject);

@@ -118,6 +118,8 @@ ScriptsOnlyBuild:
       Script: {instanceID: 0}
     - Class: 82
       Script: {instanceID: 0}
+    - Class: 83
+      Script: {instanceID: 0}
     - Class: 89
       Script: {instanceID: 0}
     - Class: 104
@@ -165,11 +167,9 @@ ScriptsOnlyBuild:
     - Class: 114
       Script: {instanceID: 8088}
     - Class: 114
-      Script: {instanceID: 27094}
+      Script: {instanceID: 26590}
     - Class: 114
-      Script: {instanceID: 27096}
-    - Class: 114
-      Script: {instanceID: 27100}
+      Script: {instanceID: 26596}
     - Class: 115
       Script: {instanceID: 0}
     - Class: 128
@@ -279,8 +279,6 @@ ScriptsOnlyBuild:
     - Class: 43
       Script: {instanceID: 0}
     - Class: 48
-      Script: {instanceID: 0}
-    - Class: 54
       Script: {instanceID: 0}
     - Class: 65
       Script: {instanceID: 0}
@@ -1526,4 +1524,4 @@ ScriptsOnlyBuild:
   - Assets/Scenes/Menu.unity
   - Assets/Scenes/Main.unity
   - Assets/Scenes/Workshop.unity
-  playerPath: /Users/ra/Documents/FloatingTrees/FloatingTrees_v0.1.1_alpha.app
+  playerPath: /Users/ra/Documents/FloatingTrees/FloatingTrees_v0.1.2_alpha.app

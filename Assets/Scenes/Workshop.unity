@@ -810,7 +810,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 39dd45362e85547e2ab9362ad762d155, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  rocketContainerName: Rocket
 --- !u!4 &2134391143
 Transform:
   m_ObjectHideFlags: 0
@@ -4326,7 +4325,6 @@ GameObject:
   m_Component:
   - component: {fileID: 479420940135132613}
   - component: {fileID: 7078410147005431070}
-  - component: {fileID: 3716507805077076453}
   - component: {fileID: 7078410147005431071}
   m_Layer: 0
   m_Name: Rocket
@@ -7371,33 +7369,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!54 &3716507805077076453
-Rigidbody:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1963842484666823435}
-  serializedVersion: 4
-  m_Mass: 100
-  m_Drag: 0
-  m_AngularDrag: 0.05
-  m_CenterOfMass: {x: 0, y: 0, z: 0}
-  m_InertiaTensor: {x: 1, y: 1, z: 1}
-  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ImplicitCom: 1
-  m_ImplicitTensor: 1
-  m_UseGravity: 1
-  m_IsKinematic: 0
-  m_Interpolate: 0
-  m_Constraints: 0
-  m_CollisionDetection: 0
 --- !u!4 &3723846297781963290
 Transform:
   m_ObjectHideFlags: 0

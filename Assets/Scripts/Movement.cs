@@ -292,6 +292,17 @@ public class Movement : MonoBehaviour
     {
         Debug.Log($"<color=red>★★★ DETACHING CHILD RIGIDBODIES - EXPLOSION! Impact Speed: {impactSpeed:F2} m/s ★★★</color>");
         
+        // 立即记录爆炸发生的精确变换（确保 RocketStateManager 有可靠的爆炸源位置信息）
+        try
+        {
+            RocketStateManager.MarkExplodedAt(transform.position, transform.rotation);
+            Debug.Log("[Movement] Marked explosion origin on RocketStateManager");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[Movement] Failed to mark explosion origin: {e.Message}");
+        }
+
         // 根据撞击速度计算爆炸力和扭矩
         float calculatedExplosionForce = impactSpeed * explosionForceMultiplier;
         float calculatedTorque = impactSpeed * 10f;  // 扭矩也与速度成正比
@@ -413,5 +424,78 @@ public class Movement : MonoBehaviour
         childRigidbodies = new Rigidbody[0];
         
         Debug.Log($"<color=red>★★★ EXPLOSION COMPLETE! {renderers.Length} blocks scattered! ★★★</color>");
+
+        // 通知 RocketStateManager：发生了爆炸（以便下一次返回 Main 时使用安全点复位）
+        try
+        {
+            RocketStateManager.MarkExploded();
+            RocketStateManager.Save();
+            RocketStateManager.TriggerExplosionRecoverySequence();
+            Debug.Log("[Movement] Notified RocketStateManager of explosion, persisted state and started recovery sequence");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[Movement] Failed to notify RocketStateManager about explosion: {e.Message}");
+        }
+    }
+
+    // 恢复爆炸后的可玩性：移除子刚体、重置子变换、恢复父刚体与输入状态、重建碰撞转发器
+    public void RecoverFromExplosion()
+    {
+        Debug.Log("[Movement] RecoverFromExplosion: restoring playable state...");
+
+        // 停止粒子与音频
+        if (mainEngineParticles != null) mainEngineParticles.Stop();
+        if (myAudioSource != null) myAudioSource.Stop();
+
+        // 删除运行时添加的子刚体（保留父刚体）
+        var childRbs = GetComponentsInChildren<Rigidbody>(true);
+        foreach (var rb in childRbs)
+        {
+            if (rb == parentRigidbody) continue;
+            Destroy(rb);
+        }
+
+        // 恢复子物体初始局部变换并确保Collider/Forwarder存在
+        foreach (var kvp in initialLocalPositions)
+        {
+            Transform child = kvp.Key;
+            if (child == null) continue;
+            child.localPosition = initialLocalPositions[child];
+            if (initialLocalRotations.ContainsKey(child))
+                child.localRotation = initialLocalRotations[child];
+
+            // 确保有Collider
+            BoxCollider bc = child.GetComponent<BoxCollider>();
+            if (bc == null) bc = child.gameObject.AddComponent<BoxCollider>();
+            bc.isTrigger = false;
+
+            // 确保有碰撞转发器
+            ChildCollisionForwarder f = child.GetComponent<ChildCollisionForwarder>();
+            if (f == null) f = child.gameObject.AddComponent<ChildCollisionForwarder>();
+            f.SetParent(this.gameObject);
+        }
+
+        // 恢复父刚体
+        if (parentRigidbody != null)
+        {
+            parentRigidbody.isKinematic = false;
+            parentRigidbody.useGravity = true;
+            parentRigidbody.velocity = Vector3.zero;
+            parentRigidbody.angularVelocity = Vector3.zero;
+            parentRigidbody.WakeUp();
+        }
+
+        // 重置内部状态
+        childRigidbodies = new Rigidbody[0];
+        hasPlayerControlled = false;
+        this.enabled = true;
+
+        // 确保摄像头指向火箭并刷新一次角度
+        CamaraFollow cam = Camera.main?.GetComponent<CamaraFollow>();
+        if (cam != null) cam.SetCameraAngle(cam.GetCurrentAngleIndex());
+
+        Debug.Log("[Movement] RecoverFromExplosion: playable state restored");
     }
 }
+

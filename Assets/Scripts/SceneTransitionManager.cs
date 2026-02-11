@@ -100,41 +100,51 @@ public class SceneTransitionManager : MonoBehaviour
     IEnumerator LoadSceneCoroutine(string sceneName)
     {
         isTransitioning = true;
-        
+
+        // 记录当前场景（用于判断是否从 Menu -> Main）
+        string fromScene = SceneManager.GetActiveScene().name;
+
         // 1. 保存当前状态
         RocketStateManager.Save();
-        
+
         // 2. 淡出（变黑）
         yield return StartCoroutine(FadeOut());
-        
+
         // 3. 异步加载场景
         AsyncOperation asyncLoad = SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Single);
         asyncLoad.allowSceneActivation = false;
-        
+
         // 等待场景加载到90%
         while (asyncLoad.progress < 0.9f)
         {
             yield return null;
         }
-        
+
         // 激活场景
         asyncLoad.allowSceneActivation = true;
-        
+
         // 等待场景完全加载
         while (!asyncLoad.isDone)
         {
             yield return null;
         }
-        
+
         // 4. 短暂延迟，确保所有对象初始化完成
         yield return new WaitForSeconds(0.1f);
-        
+
         // 4.5 强制更新光照（修复场景切换后光影不正常的问题）
         UpdateLighting();
-        
+
         // 5. 淡入（显示场景）
         yield return StartCoroutine(FadeIn());
-        
+
+        // 6. 自动初始化：如果运行时从 Menu 切到 Main，则按用户要求自动执行初始化（\ then /）
+        if (fromScene == "Menu" && sceneName == "Main")
+        {
+            Debug.Log("[SceneTransitionManager] Detected runtime Menu->Main transition — auto-initializing Rocket");
+            RocketStateManager.Initialize();
+        }
+
         isTransitioning = false;
     }
     

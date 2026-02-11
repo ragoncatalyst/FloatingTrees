@@ -578,12 +578,49 @@ public class RocketStateManager : MonoBehaviour
             parentRb.WakeUp();
         }
 
+        // 确保子碰撞体已启用且不是触发器（避免在放置后才发生穿模）
+        Collider[] myCollidersFinal = rocket.GetComponentsInChildren<Collider>(true);
+        if (myCollidersFinal == null || myCollidersFinal.Length == 0)
+        {
+            // 未找到子碰撞体——尝试让 Movement 补上（兼容持久化对象）
+            var mv = rocket.GetComponent<Movement>();
+            if (mv != null) mv.EnsureCollidersExist();
+            myCollidersFinal = rocket.GetComponentsInChildren<Collider>(true);
+        }
+        foreach (var mc in myCollidersFinal)
+        {
+            if (mc == null) continue;
+            mc.enabled = true;
+            mc.isTrigger = false;
+        }
+
         // 清理子刚体速度（如果存在）
         var childRbs = rocket.GetComponentsInChildren<Rigidbody>(true);
         foreach (var cr in childRbs)
         {
             cr.velocity = Vector3.zero;
             cr.angularVelocity = Vector3.zero;
+        }
+
+        // 最后一遍向下检测：如果火箭明显陷入地形，则向上微调（保护玩家）
+        RaycastHit groundHit;
+        if (Physics.Raycast(rocket.transform.position + Vector3.up * 1f, Vector3.down, out groundHit, 50f))
+        {
+            float lowestDy = rocket.transform.position.y - groundHit.point.y;
+            if (lowestDy < 0.05f)
+            {
+                // 正常或稍微接触，无需处理
+            }
+            else if (lowestDy < 0.45f)
+            {
+                // 如果低于地面（负值）或嵌入则抬高到地面上方0.45m
+                if (rocket.transform.position.y < groundHit.point.y + 0.45f)
+                {
+                    rocket.transform.position = new Vector3(rocket.transform.position.x, groundHit.point.y + 0.45f, rocket.transform.position.z);
+                    Physics.SyncTransforms();
+                    Debug.LogWarning($"[RocketStateManager] Detected rocket below ground after placement — nudged up to {rocket.transform.position}");
+                }
+            }
         }
 
         yield return null;
@@ -984,7 +1021,7 @@ public class RocketStateManager : MonoBehaviour
         }
     }
 
-    // 公共方法：执行出厂重置——删除/重写所有保存文件，恢复 RocketPosition.txt 中的默认位姿/摄像头，并初始化为单个方块
+    // 公共方法：执行出厂重置——删除/重写所有保存文件，恢复 RocketPosition.txt 中的默认位姿/摄像头/方块
     public static void FactoryResetToDefaults()
     {
         if (instance == null) return;
@@ -1084,7 +1121,6 @@ public class RocketStateManager : MonoBehaviour
         instance.savedMainPosition = defaultPos;
         instance.savedMainRotation = defaultRot;
         instance.hasMainPosition = true;
-        instance.hasCameraData = instance.hasCameraData;
 
         instance.SaveStateToFile();
 
@@ -1093,25 +1129,79 @@ public class RocketStateManager : MonoBehaviour
 
         Debug.Log("[RocketStateManager] Factory reset complete.");
     }
-    
-    // ========== 位置和摄像头方向保存/恢复 ==========
-    
-    // NOTE: Rocket absolute position is no longer persisted across scenes by design.
-    // Camera angle (Y) and block edit state remain persisted.
-    
-    /// <summary>
-    /// 异步应用保存的Rocket位置和摄像头角度
-    /// </summary>
 
-    
+    // 新增：初始化序列 —— 等同于按下 '\\' 然后按 '/'（FactoryReset 然后 ResetToSingleBlock）
+    public static void Initialize()
+    {
+        if (instance == null) return;
+        instance.StartCoroutine(instance.InitializeSequenceCoroutine());
+    }
+
+    // Coroutine: perform factory reset then single-block reset with a short safety delay
+    IEnumerator InitializeSequenceCoroutine()
+    {
+        // 1) Factory reset (\)
+        FactoryResetToDefaults();
+
+        // 等待一帧以确保文件与场景状态被写入/应用
+        yield return null;
+
+        // 2) Reset to single block (/)
+        ResetToSingleBlock();
+
+        // 小延迟以保证场景对象被正确处理
+        yield return new WaitForSeconds(0.05f);
+
+        Debug.Log("[RocketStateManager] Initialize(): completed (\\ then /)");
+        yield return null;
+    }
+
+    // 等待场景物理（地形 / 碰撞体 / Chunk）就绪的辅助协程
+    // - 在目标位置周围检测到非 Rocket 的碰撞体或向下射线命中地面则视为就绪
+    // - 超时后会返回 false（调用方应处理回退）
+    IEnumerator WaitForScenePhysicsReady(Vector3 checkPos, float timeoutSeconds = 1.5f)
+    {
+        float t = 0f;
+        const float poll = 0.08f;
+        while (t < timeoutSeconds)
+        {
+            // 1) 向下射线检测地面
+            RaycastHit gh;
+            if (Physics.Raycast(checkPos + Vector3.up * 5f, Vector3.down, out gh, 50f))
+            {
+                // 如果命中且命中物体不是火箭自身，则物理就绪
+                if (gh.collider != null && gh.collider.transform.IsChildOf(this.transform) == false)
+                    yield break;
+            }
+
+            // 2) 周围是否存在非自身的碰撞体
+            Collider[] cols = Physics.OverlapSphere(checkPos, 1.0f, ~0, QueryTriggerInteraction.Ignore);
+            bool found = false;
+            foreach (var c in cols)
+            {
+                if (c == null) continue;
+                if (c.transform.IsChildOf(this.transform)) continue;
+                found = true; break;
+            }
+            if (found) yield break;
+
+            t += poll;
+            yield return new WaitForSeconds(poll);
+        }
+
+        // 超时：仍然返回（调用方会记录警告并采取回退）
+        Debug.LogWarning($"[RocketStateManager] WaitForScenePhysicsReady: timeout after {timeoutSeconds:F2}s at {checkPos}");
+        yield break;
+    }
+
     /// <summary>
     /// 异步应用摄像头角度（仅摄像头，用于Workshop场景）
     /// </summary>
     IEnumerator ApplyCameraAngleAsync()
     {
-        yield return new WaitForSeconds(0.2f); // 等待场景完全初始化
-        
-        // 恢复摄像头角度
+        // 等待场景初始化（给 CamaraFollow 留出注册时间）
+        yield return new WaitForSeconds(0.2f);
+
         CamaraFollow cameraFollow = FindObjectOfType<CamaraFollow>();
         if (cameraFollow != null)
         {
@@ -1136,7 +1226,7 @@ public class RocketStateManager : MonoBehaviour
 
         Debug.Log($"[RocketStateManager] RestoreCameraAngle: set camera to index {targetIndex} ({savedCameraYRotation}°)");
     }
-    
+
     /// <summary>
     /// 异步恢复Main场景保存的位置（仅当之前离开Main时已安全记录）
     /// </summary>
@@ -1176,6 +1266,12 @@ public class RocketStateManager : MonoBehaviour
             if (best != null)
             {
                 Vector3 place = best.transform.position + Vector3.up * 0.6f;
+
+                // Ensure child colliders exist and wait for scene physics (avoid race where terrain collider isn't ready)
+                var mvEnsure = rocket.GetComponent<Movement>();
+                if (mvEnsure != null) mvEnsure.EnsureCollidersExist();
+                yield return StartCoroutine(WaitForScenePhysicsReady(place, 1.5f));
+
                 yield return StartCoroutine(PlaceRocketAtAndResolve(rocket, place, targetRot));
 
                 // 恢复可玩性（移除子刚体、恢复父刚体、重置输入等）
@@ -1217,6 +1313,11 @@ public class RocketStateManager : MonoBehaviour
 
                     if (IsMainPositionSafe(candidate))
                     {
+                        // 在放置前确保子碰撞体存在并等待地形碰撞体就绪
+                        var mvEnsure2 = rocket.GetComponent<Movement>();
+                        if (mvEnsure2 != null) mvEnsure2.EnsureCollidersExist();
+                        yield return StartCoroutine(WaitForScenePhysicsReady(candidate, 1.5f));
+
                         yield return StartCoroutine(PlaceRocketAtAndResolve(rocket, candidate, targetRot));
 
                         var mv2 = rocket.GetComponent<Movement>();
@@ -1236,6 +1337,11 @@ public class RocketStateManager : MonoBehaviour
                 if (pad != null)
                 {
                     Vector3 p = pad.transform.position + Vector3.up * 0.6f;
+                    // Ensure colliders + wait for pad/terrain collider to be ready
+                    var mvEnsurePad = rocket.GetComponent<Movement>();
+                    if (mvEnsurePad != null) mvEnsurePad.EnsureCollidersExist();
+                    yield return StartCoroutine(WaitForScenePhysicsReady(p, 1.5f));
+
                     yield return StartCoroutine(PlaceRocketAtAndResolve(rocket, p, Quaternion.identity));
 
                     var mv3 = rocket.GetComponent<Movement>();
@@ -1276,6 +1382,12 @@ public class RocketStateManager : MonoBehaviour
             if (hasCurrentPosition)
             {
                 Debug.Log("[RocketStateManager] MAINPOS 缺失 — 直接使用最近的 POS 原位恢复（含穿透修正）");
+
+                // Ensure colliders are present and scene physics ready
+                var mvEnsurePos = rocket.GetComponent<Movement>();
+                if (mvEnsurePos != null) mvEnsurePos.EnsureCollidersExist();
+                yield return StartCoroutine(WaitForScenePhysicsReady(savedCurrentPosition, 1.5f));
+
                 yield return StartCoroutine(PlaceRocketAtAndResolve(rocket, savedCurrentPosition, savedCurrentRotation));
 
                 var mv4 = rocket.GetComponent<Movement>();

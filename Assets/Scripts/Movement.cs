@@ -140,6 +140,38 @@ public class Movement : MonoBehaviour
         }
     }
 
+    // Ensure all child blocks have Colliders + collision forwarders (can be called at runtime by other systems)
+    public void EnsureCollidersExist()
+    {
+        Renderer[] allRenderers = GetComponentsInChildren<Renderer>(true);
+        foreach (Renderer renderer in allRenderers)
+        {
+            Transform child = renderer.transform;
+            if (child == transform) continue;
+
+            // 添加或修复 BoxCollider
+            BoxCollider childCollider = child.GetComponent<BoxCollider>();
+            if (childCollider == null)
+            {
+                childCollider = child.gameObject.AddComponent<BoxCollider>();
+                childCollider.isTrigger = false;
+            }
+            else
+            {
+                childCollider.isTrigger = false;
+                childCollider.enabled = true;
+            }
+
+            // 添加或修复碰撞转发器
+            ChildCollisionForwarder forwarder = child.GetComponent<ChildCollisionForwarder>();
+            if (forwarder == null)
+            {
+                forwarder = child.gameObject.AddComponent<ChildCollisionForwarder>();
+                forwarder.SetParent(this.gameObject);
+            }
+        }
+    }
+
     // Update is called once per frame
     void Update()
     {

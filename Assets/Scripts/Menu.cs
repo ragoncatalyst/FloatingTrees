@@ -11,6 +11,8 @@ public class Menu : MonoBehaviour
     [SerializeField] private Button optionsButton;      // 选项按钮
     [SerializeField] private Button advancementsButton; // 成就按钮
     [SerializeField] private Button exitButton;         // 退出按钮
+    [Tooltip("可选：菜单中的 初始化 按钮（调用 Initialize，相当于按下 \\ 然后 /）")]
+    [SerializeField] private Button initializeButton;   // 可选的初始化按钮（FactoryReset then single-block）
     
     [Header("面板")]
     [SerializeField] private GameObject optionsPanel;       // 选项面板
@@ -33,6 +35,10 @@ public class Menu : MonoBehaviour
         
         if (exitButton != null)
             exitButton.onClick.AddListener(OnExitClicked);
+
+        // 可选的初始化按钮（若在 Inspector 中绑定）
+        if (initializeButton != null)
+            initializeButton.onClick.AddListener(OnInitializeClicked);
         
         // 确保面板初始状态为关闭
         if (optionsPanel != null)
@@ -156,6 +162,16 @@ public class Menu : MonoBehaviour
         
         Debug.Log("关闭所有面板");
     }
+
+    /// <summary>
+    /// 菜单中的"初始化"回调 —— 等同于按下 \\ 然后 /
+    /// 可直接在 Inspector 把按钮的 OnClick 绑定到此方法
+    /// </summary>
+    public void OnInitializeClicked()
+    {
+        Debug.Log("Menu: Initialize clicked (\\ then /)");
+        RocketStateManager.Initialize();
+    }
     
     void OnDestroy()
     {
@@ -171,5 +187,8 @@ public class Menu : MonoBehaviour
         
         if (exitButton != null)
             exitButton.onClick.RemoveListener(OnExitClicked);
+
+        if (initializeButton != null)
+            initializeButton.onClick.RemoveListener(OnInitializeClicked);
     }
 }

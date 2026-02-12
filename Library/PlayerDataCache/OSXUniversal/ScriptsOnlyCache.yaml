@@ -5,8 +5,6 @@ ScriptsOnlyBuild:
     - CamaraFollow
     - ChildCollisionForwarder
     - CollisionHandler
-    - DebugKeyManager
-    - DebugResetStatus
     - LayersManager
     - Menu
     - Movement
@@ -18,6 +16,8 @@ ScriptsOnlyBuild:
     - SceneSwitcher
     - SceneTransitionManager
     - StatusCompare
+    Unity.ProBuilder.Editor.dll:
+    - UnityEditor.ProBuilder.DimensionsEditor
     Unity.Rider.Editor.dll:
     - Packages.Rider.Editor.UnitTesting.CallbackData
     Unity.TextMeshPro:
@@ -252,6 +252,10 @@ ScriptsOnlyBuild:
     - Class: 157
       Script: {instanceID: 0}
     - Class: 196
+      Script: {instanceID: 0}
+    - Class: 198
+      Script: {instanceID: 0}
+    - Class: 199
       Script: {instanceID: 0}
     - Class: 213
       Script: {instanceID: 0}
@@ -489,7 +493,7 @@ ScriptsOnlyBuild:
     className: TimelineAsset
   - hash:
       serializedVersion: 2
-      Hash: 4a24d5e96859faf2aa77d13591d9771e
+      Hash: 47a1a4129f4fa891cd58776052f65877
     assemblyName: Assembly-CSharp
     namespaceName: 
     className: Menu
@@ -547,12 +551,6 @@ ScriptsOnlyBuild:
     assemblyName: UnityEngine.UI
     namespaceName: UnityEngine.UI
     className: GraphicRaycaster
-  - hash:
-      serializedVersion: 2
-      Hash: e846489a75bd5924e0b8a8eb3d5198a5
-    assemblyName: Assembly-CSharp
-    namespaceName: 
-    className: DebugResetStatus
   - hash:
       serializedVersion: 2
       Hash: b9b54d7698c6b3c92d622004ce2e1787
@@ -871,12 +869,6 @@ ScriptsOnlyBuild:
     assemblyName: Unity.TextMeshPro
     namespaceName: TMPro
     className: TMP_SubMeshUI
-  - hash:
-      serializedVersion: 2
-      Hash: cd40f3e1586ad6e15738fff3e4504326
-    assemblyName: Assembly-CSharp
-    namespaceName: 
-    className: DebugKeyManager
   - hash:
       serializedVersion: 2
       Hash: 9078325c2a6f6a2d9612ade897511860
@@ -1245,12 +1237,6 @@ ScriptsOnlyBuild:
     className: TriggerBehaviour
   - hash:
       serializedVersion: 2
-      Hash: dcb5a386982e7d3645a6cd4657a652cd
-    assemblyName: Assembly-CSharp
-    namespaceName: 
-    className: DebugCubeStructure
-  - hash:
-      serializedVersion: 2
       Hash: 7fdd3ee28e9042c3ec83463d0bb3b230
     assemblyName: Assembly-CSharp
     namespaceName: TMPro.Examples
@@ -1519,6 +1505,18 @@ ScriptsOnlyBuild:
     assemblyName: Unity.VisualScripting.Core
     namespaceName: Unity.VisualScripting
     className: UnityOnSliderValueChangedMessageListener
+  - hash:
+      serializedVersion: 2
+      Hash: 63213c81252d2e8c2d343c3c9edcd15f
+    assemblyName: Assembly-CSharp
+    namespaceName: 
+    className: BlockBreakEffect
+  - hash:
+      serializedVersion: 2
+      Hash: 9659d1c2fc56d97513cd4b37ce9ef62f
+    assemblyName: Assembly-CSharp
+    namespaceName: 
+    className: BlockExplosionEffect
   platform: 2
   scenePathNames:
   - Assets/Scenes/Menu.unity

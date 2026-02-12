@@ -43,6 +43,9 @@ public class Movement : MonoBehaviour
     private AudioSource myAudioSource;
     private CamaraFollow cameraFollow;                    // 摄像头脚本（用于获取当前角度）
     
+    // 运行时状态守护：防止重复触发爆炸/恢复
+    private bool isExplodedRuntime = false;
+
     // 输入状态缓存
     private bool isThrustingThisFrame;
     private bool isMovingForward;
@@ -328,6 +331,14 @@ public class Movement : MonoBehaviour
     // 公共方法：爆炸时调用，为所有子方块添加Rigidbody并使其动态
     public void DetachChildRigidbodies(float impactSpeed)
     {
+        // Guard: only allow the explosion sequence to run once until RecoverFromExplosion resets state
+        if (isExplodedRuntime)
+        {
+            Debug.Log("[Movement] DetachChildRigidbodies: already exploded — ignoring duplicate trigger");
+            return;
+        }
+        isExplodedRuntime = true;
+
         Debug.Log($"<color=red>★★★ DETACHING CHILD RIGIDBODIES - EXPLOSION! Impact Speed: {impactSpeed:F2} m/s ★★★</color>");
 
         // Spawn visual explosion effect (Minecraft-like)
@@ -551,6 +562,9 @@ public class Movement : MonoBehaviour
         if (cam != null) cam.SetCameraAngle(cam.GetCurrentAngleIndex());
 
         Debug.Log("[Movement] RecoverFromExplosion: playable state restored");
+
+        // Allow future explosions again
+        isExplodedRuntime = false;
     }
 }
 

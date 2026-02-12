@@ -71,37 +71,58 @@ public class BlockExplosionEffect : MonoBehaviour
         }
         else
         {
-            // Fallback: programmatic smoke particle burst
-            var psGO = new GameObject("explosion_smoke");
-            psGO.transform.SetParent(root.transform, false);
-            psGO.transform.position = center;
-            var ps = psGO.AddComponent<ParticleSystem>();
-            var main = ps.main;
-            main.duration = 1.2f;
-            main.startLifetime = new ParticleSystem.MinMaxCurve(0.9f, 1.6f);
-            main.startSpeed = new ParticleSystem.MinMaxCurve(0.5f, 1.5f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.5f, 1.8f);
-            main.startColor = new Color(0.2f, 0.2f, 0.2f, 0.9f);
-            main.maxParticles = 120;
-            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            // Fallback: composite programmatic explosion (Minecraft-like)
+            // 1) Many light-gray smoke puffs
+            GameObject lightCloudGO = new GameObject("explosion_lightclouds");
+            lightCloudGO.transform.SetParent(root.transform, false);
+            lightCloudGO.transform.position = center;
+            var lightPS = lightCloudGO.AddComponent<ParticleSystem>();
+            var mainL = lightPS.main;
+            mainL.duration = 1.6f;
+            mainL.loop = false;
+            mainL.startLifetime = new ParticleSystem.MinMaxCurve(0.9f, 1.8f);
+            mainL.startSpeed = new ParticleSystem.MinMaxCurve(0.6f, 1.8f);
+            mainL.startSize = new ParticleSystem.MinMaxCurve(0.6f, 1.5f);
+            mainL.startColor = new ParticleSystem.MinMaxGradient(new Color(0.85f, 0.85f, 0.85f, 0.95f));
+            mainL.maxParticles = 300;
+            mainL.simulationSpace = ParticleSystemSimulationSpace.World;
+            var emL = lightPS.emission; emL.rateOverTime = 0f; emL.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0f, (short)60) });
+            var shL = lightPS.shape; shL.shapeType = ParticleSystemShapeType.Sphere; shL.radius = 0.45f;
+            var colL = lightPS.colorOverLifetime; colL.enabled = true;
+            Gradient gL = new Gradient(); gL.SetKeys(new GradientColorKey[]{ new GradientColorKey(new Color(0.9f,0.9f,0.9f),0f), new GradientColorKey(new Color(0.6f,0.6f,0.6f),1f) }, new GradientAlphaKey[]{ new GradientAlphaKey(0.95f,0f), new GradientAlphaKey(0f,1f)});
+            colL.color = new ParticleSystem.MinMaxGradient(gL);
+            var sizeL = lightPS.sizeOverLifetime; sizeL.enabled = true; var curveL = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f,1f,1f,1.6f)); sizeL.size = curveL;
+            var noiseL = lightPS.noise; noiseL.enabled = true; noiseL.strength = 0.6f; noiseL.frequency = 0.8f; noiseL.scrollSpeed = 0.2f;
+            lightPS.Play(); Object.Destroy(lightCloudGO, 3f);
 
-            var em = ps.emission;
-            em.rateOverTime = 0f;
-            em.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0f, (short)40) });
+            // 2) Fewer dark/black smoke puffs (denser core)
+            GameObject darkGO = new GameObject("explosion_darkpuffs");
+            darkGO.transform.SetParent(root.transform, false);
+            darkGO.transform.position = center;
+            var darkPS = darkGO.AddComponent<ParticleSystem>();
+            var mainD = darkPS.main; mainD.duration = 1.2f; mainD.loop = false; mainD.startLifetime = new ParticleSystem.MinMaxCurve(0.6f,1.2f);
+            mainD.startSpeed = new ParticleSystem.MinMaxCurve(0.3f, 1.0f); mainD.startSize = new ParticleSystem.MinMaxCurve(0.4f, 1.0f);
+            mainD.startColor = new ParticleSystem.MinMaxGradient(new Color(0.18f,0.18f,0.18f,0.95f)); mainD.maxParticles = 80; mainD.simulationSpace = ParticleSystemSimulationSpace.World;
+            var emD = darkPS.emission; emD.rateOverTime = 0f; emD.SetBursts(new ParticleSystem.Burst[]{ new ParticleSystem.Burst(0f, (short)18) });
+            var shD = darkPS.shape; shD.shapeType = ParticleSystemShapeType.Sphere; shD.radius = 0.25f;
+            var colD = darkPS.colorOverLifetime; colD.enabled = true; Gradient gD = new Gradient(); gD.SetKeys(new GradientColorKey[]{ new GradientColorKey(new Color(0.12f,0.12f,0.12f),0f), new GradientColorKey(new Color(0.03f,0.03f,0.03f),1f) }, new GradientAlphaKey[]{ new GradientAlphaKey(0.95f,0f), new GradientAlphaKey(0f,1f)}); colD.color = new ParticleSystem.MinMaxGradient(gD);
+            var noiseD = darkPS.noise; noiseD.enabled = true; noiseD.strength = 0.9f; noiseD.frequency = 0.9f; noiseD.scrollSpeed = 0.25f;
+            darkPS.Play(); Object.Destroy(darkGO, 3f);
 
-            var sh = ps.shape;
-            sh.shapeType = ParticleSystemShapeType.Sphere;
-            sh.radius = 0.3f;
-
-            var col = ps.colorOverLifetime;
-            col.enabled = true;
-            Gradient g = new Gradient();
-            g.SetKeys(new GradientColorKey[] { new GradientColorKey(new Color(0.2f,0.18f,0.16f),0f), new GradientColorKey(new Color(0.05f,0.05f,0.05f),1f) },
-                      new GradientAlphaKey[] { new GradientAlphaKey(0.9f,0f), new GradientAlphaKey(0f,1f) });
-            col.color = new ParticleSystem.MinMaxGradient(g);
-
-            ps.Play();
-            Object.Destroy(psGO, 3f);
+            // 3) Swirling mid-sized particles (vortex-like)
+            GameObject swirlGO = new GameObject("explosion_swirl");
+            swirlGO.transform.SetParent(root.transform, false);
+            swirlGO.transform.position = center;
+            var swirlPS = swirlGO.AddComponent<ParticleSystem>();
+            var mainS = swirlPS.main; mainS.duration = 1.8f; mainS.loop = false; mainS.startLifetime = new ParticleSystem.MinMaxCurve(0.9f,1.6f);
+            mainS.startSpeed = new ParticleSystem.MinMaxCurve(1.2f,2.2f); mainS.startSize = new ParticleSystem.MinMaxCurve(0.18f,0.35f);
+            mainS.startColor = new ParticleSystem.MinMaxGradient(new Color(0.78f,0.78f,0.78f,0.95f)); mainS.maxParticles = 140; mainS.simulationSpace = ParticleSystemSimulationSpace.World;
+            var emS = swirlPS.emission; emS.rateOverTime = 0f; emS.SetBursts(new ParticleSystem.Burst[]{ new ParticleSystem.Burst(0f, (short)40) });
+            var shS = swirlPS.shape; shS.shapeType = ParticleSystemShapeType.Cone; shS.radius = 0.2f; shS.angle = 35f;
+            var velS = swirlPS.velocityOverLifetime; velS.enabled = true; velS.orbitalZ = new ParticleSystem.MinMaxCurve(2.2f, 4.0f); velS.radial = new ParticleSystem.MinMaxCurve(0.2f, 0.8f);
+            var noiseS = swirlPS.noise; noiseS.enabled = true; noiseS.strength = 0.6f; noiseS.frequency = 0.9f; noiseS.scrollSpeed = 0.6f;
+            var colS = swirlPS.colorOverLifetime; colS.enabled = true; Gradient gS = new Gradient(); gS.SetKeys(new GradientColorKey[]{ new GradientColorKey(new Color(0.85f,0.85f,0.85f),0f), new GradientColorKey(new Color(0.6f,0.6f,0.6f),1f) }, new GradientAlphaKey[]{ new GradientAlphaKey(0.95f,0f), new GradientAlphaKey(0f,1f)}); colS.color = new ParticleSystem.MinMaxGradient(gS);
+            swirlPS.Play(); Object.Destroy(swirlGO, 3f);
         }
 
         // schedule root cleanup after lifetime (no light flash)

@@ -16,7 +16,7 @@ public class StatusCompare : MonoBehaviour
     
     void Awake()
     {
-        workshopStatusPath = Path.Combine(Application.dataPath, "RocketStatus.txt");
+        workshopStatusPath = Path.Combine(Application.dataPath, "RocketStatusWorkshop.txt");
         mainStatusPath = Path.Combine(Application.dataPath, "RocketStatusMain.txt");
         
         DontDestroyOnLoad(gameObject);

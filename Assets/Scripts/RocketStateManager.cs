@@ -87,8 +87,8 @@ public class RocketStateManager : MonoBehaviour
 
     void Awake()
     {
-        // 设置保存文件路径到Assets文件夹
-        saveFilePath = Path.Combine(Application.dataPath, "RocketStatus.txt");
+        // 设置保存文件路径到Assets文件夹（Workshop 专用命名）
+        saveFilePath = Path.Combine(Application.dataPath, "RocketStatusWorkshop.txt");
         Debug.Log($"[RocketStateManager] Save file path: {saveFilePath}");
         
         // 单例模式 - 确保只有一个实例，并且在场景切换时不被销毁

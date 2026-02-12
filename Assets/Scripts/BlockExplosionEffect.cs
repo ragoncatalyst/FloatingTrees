@@ -104,34 +104,8 @@ public class BlockExplosionEffect : MonoBehaviour
             Object.Destroy(psGO, 3f);
         }
 
-        // Brief light flash
-        var lightGO = new GameObject("explosion_light");
-        lightGO.transform.SetParent(root.transform, false);
-        lightGO.transform.position = center;
-        var l = lightGO.AddComponent<Light>();
-        l.color = new Color(1f, 0.85f, 0.6f);
-        l.intensity = 6f;
-        l.range = 6f;
-
-        // fade light
-        root.AddComponent<MonoBehaviourHelper>().StartCoroutine(FadeLightAndCleanup(l, root, lifetime));
-    }
-
-    static IEnumerator FadeLightAndCleanup(Light l, GameObject root, float lifetime)
-    {
-        float t = 0f;
-        float dur = 0.5f;
-        while (t < dur)
-        {
-            t += Time.deltaTime;
-            l.intensity = Mathf.Lerp(6f, 0f, t / dur);
-            yield return null;
-        }
-        Object.Destroy(l.gameObject);
-
-        // cleanup after lifetime
-        yield return new WaitForSeconds(lifetime);
-        Object.Destroy(root);
+        // schedule root cleanup after lifetime (no light flash)
+        Object.Destroy(root, lifetime + 0.1f);
     }
 
     // helper component: fades material alpha and destroys
@@ -171,6 +145,4 @@ public class BlockExplosionEffect : MonoBehaviour
         }
     }
 
-    // tiny MonoBehaviour helper to run coroutines from static context
-    class MonoBehaviourHelper : MonoBehaviour { }
 }

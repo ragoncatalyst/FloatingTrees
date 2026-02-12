@@ -103,21 +103,82 @@ public class BlockBreakEffect : MonoBehaviour
                     rb.angularDrag = 0.9f;
                     rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
-                    // 给碎片一个随机推力，使其爆散 — 将推力强度降低为原来的一半
+                    // 给碎片一个随机推力，使其爆散 — 播放速度提升至 2x（将 mag ×=2）
                     Vector3 dir = (localPos + Random.insideUnitSphere * 0.3f).normalized;
-                    float mag = (force * 0.5f) * (0.5f + Random.value); // 减半
+                    float mag = (force * 0.5f) * (0.5f + Random.value) * 2f; // 相对于上一次调整，速度翻倍
                     rb.AddForce(dir * mag, ForceMode.Impulse);
 
                     // 随机旋转（基于新的 mag）
                     rb.AddTorque(Random.insideUnitSphere * mag * 0.2f, ForceMode.Impulse);
 
-                    // 自动销毁（延迟）
-                    Object.Destroy(shard, lifetime);
+                    // 立即开始淡出（在接下来的 fadeDuration 秒内逐渐透明并销毁）
+                    float fadeDuration = 2f; // 用户要求为 2 秒
+                    shard.AddComponent<FadeAndKill>().BeginFade(fadeDuration);
                 }
             }
         }
 
-        // 销毁容器（延迟，稍比碎片晚）
-        Object.Destroy(container, lifetime + 0.1f);
+        // 销毁容器（延迟，稍比碎片晚） — 延迟与碎片淡出时间一致
+        Object.Destroy(container, 2f + 0.15f);
+    }
+
+
+    // 附加组件：对单个碎片做透明淡出并在完成后销毁
+    class FadeAndKill : MonoBehaviour
+    {
+        Material[] materials;
+        float duration = 2f;
+
+        public void BeginFade(float fadeDuration)
+        {
+            duration = fadeDuration;
+
+            var rends = GetComponentsInChildren<Renderer>(true);
+            List<Material> mats = new List<Material>();
+            foreach (var r in rends)
+            {
+                // 确保使用实例化材质以便安全修改颜色
+                for (int i = 0; i < r.materials.Length; i++)
+                {
+                    r.materials[i] = new Material(r.materials[i]);
+                    mats.Add(r.materials[i]);
+                }
+            }
+            materials = mats.ToArray();
+
+            StartCoroutine(FadeCoroutine());
+        }
+
+        IEnumerator FadeCoroutine()
+        {
+            float t = 0f;
+            // 记录原始颜色
+            Color[] original = new Color[materials.Length];
+            for (int i = 0; i < materials.Length; i++)
+            {
+                if (materials[i].HasProperty("_Color"))
+                    original[i] = materials[i].GetColor("_Color");
+                else
+                    original[i] = materials[i].color;
+            }
+
+            while (t < duration)
+            {
+                t += Time.deltaTime;
+                float a = Mathf.Clamp01(1f - (t / duration));
+                for (int i = 0; i < materials.Length; i++)
+                {
+                    Color c = original[i];
+                    c.a = a;
+                    if (materials[i].HasProperty("_Color"))
+                        materials[i].SetColor("_Color", c);
+                    else
+                        materials[i].color = c;
+                }
+                yield return null;
+            }
+
+            Destroy(gameObject);
+        }
     }
 }

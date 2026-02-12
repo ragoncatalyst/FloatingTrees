@@ -45,37 +45,53 @@ public class BlockExplosionEffect : MonoBehaviour
             shard.AddComponent<AutoFadeDestroy>().Begin(lifetime);
         }
 
-        // Smoke particle burst (programmatic ParticleSystem)
-        var psGO = new GameObject("explosion_smoke");
-        psGO.transform.SetParent(root.transform, false);
-        psGO.transform.position = center;
-        var ps = psGO.AddComponent<ParticleSystem>();
-        var main = ps.main;
-        main.duration = 1.2f;
-        main.startLifetime = new ParticleSystem.MinMaxCurve(0.9f, 1.6f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(0.5f, 1.5f);
-        main.startSize = new ParticleSystem.MinMaxCurve(0.5f, 1.8f);
-        main.startColor = new Color(0.2f, 0.2f, 0.2f, 0.9f);
-        main.maxParticles = 120;
-        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        // Try to use project "Explosion Particles" prefab (Resources) if available to preserve intended visuals
+        GameObject explosionPrefab = Resources.Load<GameObject>("Explosion Particles");
+        if (explosionPrefab != null)
+        {
+            GameObject prefabInst = Object.Instantiate(explosionPrefab, center, Quaternion.identity, root.transform);
+            // Play all particle systems on the prefab instance then destroy
+            var parts = prefabInst.GetComponentsInChildren<ParticleSystem>(true);
+            foreach (var p in parts)
+            {
+                p.Play();
+            }
+            Object.Destroy(prefabInst, 3f);
+        }
+        else
+        {
+            // Fallback: programmatic smoke particle burst
+            var psGO = new GameObject("explosion_smoke");
+            psGO.transform.SetParent(root.transform, false);
+            psGO.transform.position = center;
+            var ps = psGO.AddComponent<ParticleSystem>();
+            var main = ps.main;
+            main.duration = 1.2f;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.9f, 1.6f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.5f, 1.5f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.5f, 1.8f);
+            main.startColor = new Color(0.2f, 0.2f, 0.2f, 0.9f);
+            main.maxParticles = 120;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
 
-        var em = ps.emission;
-        em.rateOverTime = 0f;
-        em.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0f, (short)40) });
+            var em = ps.emission;
+            em.rateOverTime = 0f;
+            em.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0f, (short)40) });
 
-        var sh = ps.shape;
-        sh.shapeType = ParticleSystemShapeType.Sphere;
-        sh.radius = 0.3f;
+            var sh = ps.shape;
+            sh.shapeType = ParticleSystemShapeType.Sphere;
+            sh.radius = 0.3f;
 
-        var col = ps.colorOverLifetime;
-        col.enabled = true;
-        Gradient g = new Gradient();
-        g.SetKeys(new GradientColorKey[] { new GradientColorKey(new Color(0.2f,0.18f,0.16f),0f), new GradientColorKey(new Color(0.05f,0.05f,0.05f),1f) },
-                  new GradientAlphaKey[] { new GradientAlphaKey(0.9f,0f), new GradientAlphaKey(0f,1f) });
-        col.color = new ParticleSystem.MinMaxGradient(g);
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            Gradient g = new Gradient();
+            g.SetKeys(new GradientColorKey[] { new GradientColorKey(new Color(0.2f,0.18f,0.16f),0f), new GradientColorKey(new Color(0.05f,0.05f,0.05f),1f) },
+                      new GradientAlphaKey[] { new GradientAlphaKey(0.9f,0f), new GradientAlphaKey(0f,1f) });
+            col.color = new ParticleSystem.MinMaxGradient(g);
 
-        ps.Play();
-        Object.Destroy(psGO, 3f);
+            ps.Play();
+            Object.Destroy(psGO, 3f);
+        }
 
         // Brief light flash
         var lightGO = new GameObject("explosion_light");

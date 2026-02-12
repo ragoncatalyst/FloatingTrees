@@ -6,17 +6,9 @@ using UnityEngine;
 /// \ 反斜杠：清空配置文件并重新加载（会初始化为单个方块）
 /// Enter：在Workshop和Main场景之间切换（由SceneSwitcher处理）
 /// </summary>
-public class DebugKeyManager : MonoBehaviour
-{
-    void Update()
-    {
-        // / 键：将当前Rocket设置为单个方块并保存到配置文件
-        if (Input.GetKeyDown(KeyCode.Slash))
-        {
-            Debug.Log("[DebugKeyManager] 按下/键，设置为单个方块");
-            RocketStateManager.ResetToSingleBlock();
-        }
-        
-        // Backslash debug shortcut removed (test-only)
-    }
-}
+#if UNITY_EDITOR
+using UnityEngine;
+
+[System.Obsolete("DebugKeyManager removed — debug-only behavior disabled.")]
+public class DebugKeyManager : MonoBehaviour { }
+#endif

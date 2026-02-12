@@ -97,17 +97,18 @@ public class BlockBreakEffect : MonoBehaviour
 
                     // Rigidbody
                     Rigidbody rb = shard.AddComponent<Rigidbody>();
-                    rb.mass = 0.2f;
+                    // 增强重力感：将质量翻倍使重力作用看起来更强（gravity force = mass * g）
+                    rb.mass = 0.2f * 2f; // 之前是 0.2f
                     rb.drag = 0.6f;
                     rb.angularDrag = 0.9f;
                     rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
-                    // 给碎片一个随机推力，使其爆散
+                    // 给碎片一个随机推力，使其爆散 — 将推力强度降低为原来的一半
                     Vector3 dir = (localPos + Random.insideUnitSphere * 0.3f).normalized;
-                    float mag = force * (0.5f + Random.value);
+                    float mag = (force * 0.5f) * (0.5f + Random.value); // 减半
                     rb.AddForce(dir * mag, ForceMode.Impulse);
 
-                    // 随机旋转
+                    // 随机旋转（基于新的 mag）
                     rb.AddTorque(Random.insideUnitSphere * mag * 0.2f, ForceMode.Impulse);
 
                     // 自动销毁（延迟）

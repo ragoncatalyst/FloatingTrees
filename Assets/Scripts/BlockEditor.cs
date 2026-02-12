@@ -179,21 +179,24 @@ public class BlockEditor : MonoBehaviour
                     return;
                 }
                 
+                // 先播放方块破碎效果（再隐藏原方块）
+                BlockBreakEffect.Spawn(hitBlock.transform.position, hitBlock.transform, resolution: 3, fragmentSize: 0.25f, force: 3f, lifetime: 1.6f);
+
                 // 直接禁用这个方块
                 hitBlock.SetActive(false);
-                
+
                 // 显式禁用Renderer确保视觉同步
                 Renderer[] renderers = hitBlock.GetComponentsInChildren<Renderer>(true);
                 foreach (Renderer r in renderers)
                 {
                     r.enabled = false;
                 }
-                
+
                 // Debug.Log($"[BlockEditor] Disabled {layer.name}/{hitBlock.name}");
-                
+
                 // 播放编辑音效
                 PlayEditSound();
-                
+
                 // 清除hover状态
                 if (hoveredBlock == hitBlock)
                 {

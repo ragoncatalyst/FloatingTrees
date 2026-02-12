@@ -22,7 +22,7 @@ public class BlockExplosionEffect : MonoBehaviour
             force = settings.shardForce;
             lifetime = settings.shardLifetime;
 
-            // override particle burst values via local variables used later
+            Debug.Log($"[BlockExplosionEffect] Loaded ExplosionFXSettings from Resources (shardCount={shardCount})");
         }
 
         GameObject root = new GameObject("explosion_effect");

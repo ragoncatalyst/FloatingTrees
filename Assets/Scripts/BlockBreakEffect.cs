@@ -126,58 +126,35 @@ public class BlockBreakEffect : MonoBehaviour
     // 附加组件：对单个碎片做透明淡出并在完成后销毁
     class FadeAndKill : MonoBehaviour
     {
-        Material[] materials;
+        Renderer[] rends;
         float duration = 2f;
+        float t = 0f;
+        MaterialPropertyBlock mpb;
 
         public void BeginFade(float fadeDuration)
         {
             duration = fadeDuration;
-
-            var rends = GetComponentsInChildren<Renderer>(true);
-            List<Material> mats = new List<Material>();
-            foreach (var r in rends)
-            {
-                // 确保使用实例化材质以便安全修改颜色
-                for (int i = 0; i < r.materials.Length; i++)
-                {
-                    r.materials[i] = new Material(r.materials[i]);
-                    mats.Add(r.materials[i]);
-                }
-            }
-            materials = mats.ToArray();
-
+            rends = GetComponentsInChildren<Renderer>(true);
+            mpb = new MaterialPropertyBlock();
             StartCoroutine(FadeCoroutine());
         }
 
         IEnumerator FadeCoroutine()
         {
-            float t = 0f;
-            // 记录原始颜色
-            Color[] original = new Color[materials.Length];
-            for (int i = 0; i < materials.Length; i++)
-            {
-                if (materials[i].HasProperty("_Color"))
-                    original[i] = materials[i].GetColor("_Color");
-                else
-                    original[i] = materials[i].color;
-            }
-
+            t = 0f;
             while (t < duration)
             {
                 t += Time.deltaTime;
                 float a = Mathf.Clamp01(1f - (t / duration));
-                for (int i = 0; i < materials.Length; i++)
+                foreach (var r in rends)
                 {
-                    Color c = original[i];
-                    c.a = a;
-                    if (materials[i].HasProperty("_Color"))
-                        materials[i].SetColor("_Color", c);
-                    else
-                        materials[i].color = c;
+                    Color baseCol = r.sharedMaterial != null && r.sharedMaterial.HasProperty("_Color") ? r.sharedMaterial.GetColor("_Color") : (r.sharedMaterial != null ? r.sharedMaterial.color : Color.white);
+                    Color c = baseCol; c.a = a;
+                    mpb.SetColor("_Color", c);
+                    r.SetPropertyBlock(mpb);
                 }
                 yield return null;
             }
-
             Destroy(gameObject);
         }
     }

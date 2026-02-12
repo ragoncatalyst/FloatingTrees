@@ -331,7 +331,8 @@ public class Movement : MonoBehaviour
         Debug.Log($"<color=red>★★★ DETACHING CHILD RIGIDBODIES - EXPLOSION! Impact Speed: {impactSpeed:F2} m/s ★★★</color>");
 
         // Spawn visual explosion effect (Minecraft-like)
-        BlockExplosionEffect.SpawnExplosion(transform.position, shardCount: 56, spread: 4f, shardSize: 0.10f, force: 8f, lifetime: 2.0f);
+        // reduce visual shard count to avoid large per-frame allocations on explosion
+        BlockExplosionEffect.SpawnExplosion(transform.position, shardCount: 18, spread: 4f, shardSize: 0.10f, force: 8f, lifetime: 2.0f);
 
         // 保障性调用：确保所有子碰撞体存在（避免后续重复创建代码）
         EnsureCollidersExist();

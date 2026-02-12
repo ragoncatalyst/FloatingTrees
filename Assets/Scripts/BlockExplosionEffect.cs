@@ -8,13 +8,26 @@ using UnityEngine;
 /// </summary>
 public class BlockExplosionEffect : MonoBehaviour
 {
+    // shared material for shards to avoid per-instance material allocations
+    private static Material sharedShardMaterial;
+
     public static void SpawnExplosion(Vector3 center, int shardCount = 40, float spread = 3.0f, float shardSize = 0.12f, float force = 6f, float lifetime = 2f)
     {
         GameObject root = new GameObject("explosion_effect");
         root.transform.position = center;
         DontDestroyOnLoad(root);
 
-        // Spawn shards
+        // Safety clamp to avoid huge allocations on low-end devices or large explosions
+        shardCount = Mathf.Clamp(shardCount, 0, 20); // limit shards to 20 by default
+
+        // Shared material for shards to avoid per-shard material instancing cost
+        if (sharedShardMaterial == null)
+        {
+            sharedShardMaterial = new Material(Shader.Find("Standard"));
+            sharedShardMaterial.color = new Color(0.8f, 0.7f, 0.6f);
+        }
+
+        // Spawn shards (reduced and optimized)
         for (int i = 0; i < shardCount; i++)
         {
             Vector3 rand = new Vector3(Random.Range(-1f, 1f), Random.Range(0f, 1f), Random.Range(-1f, 1f));
@@ -26,9 +39,7 @@ public class BlockExplosionEffect : MonoBehaviour
             shard.transform.SetParent(root.transform, true);
 
             var rend = shard.GetComponent<Renderer>();
-            // neutral gray-ish color
-            rend.material = new Material(Shader.Find("Standard"));
-            rend.material.color = new Color(0.8f, 0.7f, 0.6f);
+            rend.sharedMaterial = sharedShardMaterial; // reuse shared material to reduce GC/instancing
 
             Rigidbody rb = shard.AddComponent<Rigidbody>();
             rb.mass = 0.05f;
@@ -41,7 +52,7 @@ public class BlockExplosionEffect : MonoBehaviour
             rb.AddForce(dir * mag, ForceMode.Impulse);
             rb.AddTorque(Random.insideUnitSphere * mag * 0.1f, ForceMode.Impulse);
 
-            // fade & destroy
+            // fade & destroy (non-instancing fade)
             shard.AddComponent<AutoFadeDestroy>().Begin(lifetime);
         }
 
@@ -126,45 +137,33 @@ public class BlockExplosionEffect : MonoBehaviour
     // helper component: fades material alpha and destroys
     class AutoFadeDestroy : MonoBehaviour
     {
-        Material[] mats;
+        Renderer[] rends;
         float life = 1.5f;
         float elapsed = 0f;
+        MaterialPropertyBlock mpb;
+
         public void Begin(float lifetime)
         {
             life = lifetime;
-            var rends = GetComponentsInChildren<Renderer>(true);
-            List<Material> list = new List<Material>();
-            foreach (var r in rends)
-            {
-                for (int i = 0; i < r.materials.Length; i++)
-                {
-                    r.materials[i] = new Material(r.materials[i]);
-                    list.Add(r.materials[i]);
-                }
-            }
-            mats = list.ToArray();
+            rends = GetComponentsInChildren<Renderer>(true);
+            mpb = new MaterialPropertyBlock();
             StartCoroutine(LifeCoroutine());
         }
+
         IEnumerator LifeCoroutine()
         {
             while (elapsed < life)
             {
                 elapsed += Time.deltaTime;
                 float a = Mathf.Clamp01(1f - (elapsed / life));
-                foreach (var m in mats)
+                foreach (var r in rends)
                 {
-                    if (m.HasProperty("_Color"))
-                    {
-                        Color c = m.GetColor("_Color");
-                        c.a = a;
-                        m.SetColor("_Color", c);
-                    }
-                    else
-                    {
-                        Color c = m.color;
-                        c.a = a;
-                        m.color = c;
-                    }
+                    // Fetch original color from shared material and adjust alpha via MPB (no material instancing)
+                    Color baseCol = r.sharedMaterial != null && r.sharedMaterial.HasProperty("_Color") ? r.sharedMaterial.GetColor("_Color") : r.sharedMaterial != null ? r.sharedMaterial.color : Color.white;
+                    Color c = baseCol;
+                    c.a = a;
+                    mpb.SetColor("_Color", c);
+                    r.SetPropertyBlock(mpb);
                 }
                 yield return null;
             }

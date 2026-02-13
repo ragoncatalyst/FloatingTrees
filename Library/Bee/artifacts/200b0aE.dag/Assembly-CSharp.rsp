@@ -362,6 +362,7 @@
 "Assets/Scripts/CamaraFollow.cs"
 "Assets/Scripts/ChildCollisionForwarder.cs"
 "Assets/Scripts/CollisionHandler.cs"
+"Assets/Scripts/ExplosionFXSettings.cs"
 "Assets/Scripts/LayersManager.cs"
 "Assets/Scripts/Menu.cs"
 "Assets/Scripts/Movement.cs"

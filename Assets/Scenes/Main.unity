@@ -19480,6 +19480,10 @@ PrefabInstance:
       value: 100
       objectReference: {fileID: 0}
     - target: {fileID: 5096602361105759905, guid: 563418766deb1492b816cde06401b7c8, type: 3}
+      propertyPath: debrisAngularDrag
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 5096602361105759905, guid: 563418766deb1492b816cde06401b7c8, type: 3}
       propertyPath: horizontalMoveForce
       value: 800
       objectReference: {fileID: 0}

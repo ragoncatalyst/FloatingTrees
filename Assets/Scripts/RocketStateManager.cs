@@ -80,6 +80,12 @@ public class RocketStateManager : MonoBehaviour
         foreach (var c in cols)
         {
             if (c == null) continue;
+            // 不要将名为 AimingSphere 的 collider 设为非触发器（保留其 trigger 行为）
+            if (c.gameObject.name.Equals("AimingSphere"))
+            {
+                c.enabled = true;
+                continue;
+            }
             c.enabled = true;
             c.isTrigger = false;
         }

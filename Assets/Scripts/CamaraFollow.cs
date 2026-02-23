@@ -13,6 +13,7 @@ public class CamaraFollow : MonoBehaviour
     [SerializeField] private float scrollSensitivity = 2f;          // 滚轮灵敏度
     [SerializeField] private float rotationTransitionTime = 0.3f;   // 角度切换过渡时间
     [SerializeField] private float waitListTimeout = 0.2f;          // 等待列表超时时间（秒）
+    [SerializeField] private float shoulderOffset = 0f;             // 肩部侧移，正为右肩，负为左肩
     
     [Header("旋转音效")]
     [SerializeField] private AudioClip[] rotationClockwiseSounds;      // 顺时针旋转音效
@@ -67,18 +68,17 @@ public class CamaraFollow : MonoBehaviour
     /// <param name="angleIndex">角度索引 (0=0°, 1=90°, 2=180°, 3=270°)</param>
     public void SetCameraAngle(int angleIndex)
     {
-        // 反转索引映射回实际角度
-        int reversedIndex = (4 - angleIndex) % 4;
-        float targetAngle = reversedIndex * 90f;
-        
+        // 将索引直接解释为相对于火箭朝向的偏移次数
+        float targetAngle = angleIndex * 90f;
+
         currentYRotation = targetAngle;
         targetYRotation = targetAngle;
         isTransitioning = false;
-        
+
         // 立即更新摄像头位置
         UpdateCameraPosition();
-        
-        Debug.Log($"[CamaraFollow] 摄像头角度已设置为索引 {angleIndex} ({targetAngle}°)");
+
+        Debug.Log($"[CamaraFollow] 摄像头角度已设置为索引 {angleIndex} ({targetAngle}° 相对)");
     }
 
     void Start()
@@ -201,6 +201,8 @@ public class CamaraFollow : MonoBehaviour
     void HandleAngleSwitch()
     {
         // 检测按键持续按下状态
+        // if shop open, ignore rotation keys entirely
+        if (TradingSystem.shopOpen) return;
         bool qPressed = Input.GetKey(KeyCode.Q);
         bool ePressed = Input.GetKey(KeyCode.E);
         
@@ -331,16 +333,29 @@ public class CamaraFollow : MonoBehaviour
         float pitchRadians = baseRotation.x * Mathf.Deg2Rad;
         float horizontalDist = baseDistance * Mathf.Cos(pitchRadians);
         float height = baseDistance * Mathf.Sin(pitchRadians);
-        
-        Vector3 offset = new Vector3(
+
+        // 在火箭本地空间中构造偏移，然后转换到世界坐标
+        Vector3 localOffset = new Vector3(
             Mathf.Sin(angleInRadians) * horizontalDist,
             height,
             -Mathf.Cos(angleInRadians) * horizontalDist
         );
-        
-        transform.position = pivotPoint + offset;
-        
-        // 第1步：面朝Rocket（LookAt确保视线对准）
+
+        // 将相对于火箭前方的局部偏移旋转到世界
+        Quaternion rocketYaw = Quaternion.Euler(0f, target.eulerAngles.y, 0f);
+        Vector3 worldOffset = rocketYaw * localOffset;
+
+        // 应用肩部水平偏移（基于相机当前右向）
+        if (shoulderOffset != 0f)
+        {
+            Vector3 camDir = (pivotPoint - (pivotPoint + worldOffset)).normalized;
+            Vector3 rightVec = Vector3.Cross(camDir, Vector3.up).normalized;
+            worldOffset += rightVec * shoulderOffset;
+        }
+
+        transform.position = pivotPoint + worldOffset;
+
+        // 第1步：面朝Rocket
         transform.LookAt(pivotPoint);
     }
     
@@ -376,19 +391,25 @@ public class CamaraFollow : MonoBehaviour
         float pitchRadians = baseRotation.x * Mathf.Deg2Rad;
         float horizontalDist = currentDistance * Mathf.Cos(pitchRadians);
         float height = currentDistance * Mathf.Sin(pitchRadians);
-        
-        // 第2步：计算摄像头位置（尽可能保持距离为baseDistance，当前距离为currentDistance）
-        Vector3 offset = new Vector3(
+
+        Vector3 localOffset = new Vector3(
             Mathf.Sin(angleInRadians) * horizontalDist,
             height,
             -Mathf.Cos(angleInRadians) * horizontalDist
         );
-        
+        Quaternion rocketYaw = Quaternion.Euler(0f, target.eulerAngles.y, 0f);
+        Vector3 worldOffset = rocketYaw * localOffset;
+        if (shoulderOffset != 0f)
+        {
+            Vector3 camDir = (pivotPoint - (pivotPoint + worldOffset)).normalized;
+            Vector3 rightVec = Vector3.Cross(camDir, Vector3.up).normalized;
+            worldOffset += rightVec * shoulderOffset;
+        }
+
         // 设置位置
-        transform.position = pivotPoint + offset;
-        
+        transform.position = pivotPoint + worldOffset;
+
         // 第1步：确保摄像头面向火箭（最高优先级）
-        // LookAt会自动产生正确的俯角
         transform.LookAt(pivotPoint);
         
         // 每3秒输出调试信息

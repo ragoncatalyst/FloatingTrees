@@ -107,13 +107,17 @@ public class Movement : MonoBehaviour
         // 为所有方块添加Collider和碰撞转发器
         foreach (Transform child in childTransforms)
         {
+            // Skip the AimingSphere explicitly — it should keep its own SphereCollider / trigger behavior
+            if (child.gameObject.name.Equals("AimingSphere"))
+                continue;
+
             // 确保每个方块都有Collider
             BoxCollider childCollider = child.GetComponent<BoxCollider>();
             if (childCollider == null)
             {
                 childCollider = child.gameObject.AddComponent<BoxCollider>();
             }
-            
+
             // 添加碰撞转发器，将碰撞事件转发给父物体
             ChildCollisionForwarder forwarder = child.GetComponent<ChildCollisionForwarder>();
             if (forwarder == null)
@@ -157,6 +161,10 @@ public class Movement : MonoBehaviour
         {
             Transform child = renderer.transform;
             if (child == transform) continue;
+
+            // Skip AimingSphere entirely — do not add/modify colliders or forwarders for it
+            if (child.gameObject.name.Equals("AimingSphere"))
+                continue;
 
             // 添加或修复 BoxCollider
             BoxCollider childCollider = child.GetComponent<BoxCollider>();
@@ -202,6 +210,9 @@ public class Movement : MonoBehaviour
 
     void ProcessInput()
     {
+        // 若商店正在打开，则不响应任何输入
+        if (TradingSystem.shopOpen) return;
+
         // 缓存输入状态
         isThrustingThisFrame = Input.GetKey(KeyCode.Space);
         isMovingForward = Input.GetKey(KeyCode.W);
@@ -431,7 +442,9 @@ public class Movement : MonoBehaviour
             BoxCollider childCollider = child.GetComponent<BoxCollider>();
             if (childCollider != null)
             {
-                childCollider.isTrigger = false;
+                // 不要改动 AimingSphere 的 isTrigger
+                if (!child.gameObject.name.Equals("AimingSphere"))
+                    childCollider.isTrigger = false;
                 childCollider.center = Vector3.zero;
                 childCollider.size = Vector3.one;
             }

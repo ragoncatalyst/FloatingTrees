@@ -33,24 +33,30 @@ public class TradingSystem : MonoBehaviour
 
     // internal state
     RectTransform shopRect;
-    Vector2 closedPosition;
-    Vector2 openPosition;
+    Vector2 openPosition;   // 正常显示的位置
+    Vector2 closedPosition; // 完全在父容器右侧以外的位置
     bool isOpen = false;
     Coroutine slideCoroutine;
 
     void Start()
     {
         UpdateUI();
-        if (shopPanel != null)
-        {
-            shopRect = shopPanel.GetComponent<RectTransform>();
-            // assume panel anchored right side; closed position offscreen to right
-            openPosition = shopRect.anchoredPosition;
-            closedPosition = openPosition + new Vector2(shopRect.rect.width, 0);
-            shopRect.anchoredPosition = closedPosition;
-            shopPanel.SetActive(true); // keep active so animation works
-            isOpen = false;
-        }
+        if (shopPanel == null) return;
+
+        shopRect = shopPanel.GetComponent<RectTransform>();
+        // record the position where the panel should sit when visible
+        openPosition = shopRect.anchoredPosition;
+        // compute closed position based on parent width so it is guaranteed offscreen
+        RectTransform parentRect = shopRect.parent as RectTransform;
+        float parentWidth = parentRect != null ? parentRect.rect.width : 0f;
+        float panelWidth = shopRect.rect.width;
+        // move the panel completely to the right of its parent
+        closedPosition = openPosition + new Vector2(parentWidth + panelWidth, 0f);
+
+        // start hidden
+        shopRect.anchoredPosition = closedPosition;
+        shopPanel.SetActive(false);
+        isOpen = false;
     }
 
     void Update()
@@ -71,8 +77,23 @@ public class TradingSystem : MonoBehaviour
     {
         if (shopPanel == null) return;
         if (slideCoroutine != null) StopCoroutine(slideCoroutine);
+
+        // always compute closed position from current width and parent size (layout/resolution may change)
+        float width = shopRect.rect.width;
+        RectTransform parentRect = shopRect.parent as RectTransform;
+        float parentWidth = parentRect != null ? parentRect.rect.width : 0f;
+        closedPosition = openPosition + new Vector2(parentWidth + width, 0);
+
         isOpen = !isOpen;
         shopOpen = isOpen; // update global flag
+
+        if (isOpen)
+        {
+            shopPanel.SetActive(true);
+            // when opening always slide from the closed position (which we've just recomputed)
+            shopRect.anchoredPosition = closedPosition;
+        }
+
         slideCoroutine = StartCoroutine(SlidePanel(isOpen));
     }
 
@@ -82,19 +103,26 @@ public class TradingSystem : MonoBehaviour
         float elapsed = 0f;
         Vector2 start = shopRect.anchoredPosition;
         Vector2 target = open ? openPosition : closedPosition;
+
         while (elapsed < slideDuration)
         {
             elapsed += Time.unscaledDeltaTime; // use unscaled so works when timescale is 0
             float t = Mathf.Clamp01(elapsed / slideDuration);
-            // ease-in-out using smoothstep
             float tt = t * t * (3f - 2f * t);
             shopRect.anchoredPosition = Vector2.Lerp(start, target, tt);
             yield return null;
         }
+
         shopRect.anchoredPosition = target;
 
-        // adjust timeScale after animation
+        // remember open position in case layout/resolution shifted while open
+        if (isOpen)
+            openPosition = target;
+
         Time.timeScale = isOpen ? 0f : 1f;
+
+        if (!isOpen)
+            shopPanel.SetActive(false);
     }
 
     public void TryPurchase(ShopItem item)

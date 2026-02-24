@@ -278,42 +278,19 @@ public class Movement : MonoBehaviour
         // 检查是否有WASD输入
         bool hasMovementInput = isMovingForward || isMovingBack || isMovingLeft || isMovingRight;
         
-        // 获取摄像头角度索引
-        int angleIndex = cameraFollow != null ? cameraFollow.GetCurrentAngleIndex() : 0;
-        
-        // 根据角度索引和WASD输入计算移动方向（世界坐标系）
         Vector3 moveDirection = Vector3.zero;
-        
-        switch (angleIndex)
-        {
-            case 0: // 0°视角
-                if (isMovingForward) moveDirection.z += 1f;
-                if (isMovingBack) moveDirection.z -= 1f;
-                if (isMovingLeft) moveDirection.x -= 1f;
-                if (isMovingRight) moveDirection.x += 1f;
-                break;
-                
-            case 1: // 90°视角
-                if (isMovingForward) moveDirection.x += 1f;
-                if (isMovingBack) moveDirection.x -= 1f;
-                if (isMovingLeft) moveDirection.z += 1f;
-                if (isMovingRight) moveDirection.z -= 1f;
-                break;
-                
-            case 2: // 180°视角
-                if (isMovingForward) moveDirection.z -= 1f;
-                if (isMovingBack) moveDirection.z += 1f;
-                if (isMovingLeft) moveDirection.x += 1f;
-                if (isMovingRight) moveDirection.x -= 1f;
-                break;
-                
-            case 3: // 270°视角
-                if (isMovingForward) moveDirection.x -= 1f;
-                if (isMovingBack) moveDirection.x += 1f;
-                if (isMovingLeft) moveDirection.z -= 1f;
-                if (isMovingRight) moveDirection.z += 1f;
-                break;
-        }
+        // movement is always oriented relative to the camera's horizontal plane
+        Vector3 camFwd = Camera.main ? Camera.main.transform.forward : Vector3.forward;
+        camFwd.y = 0f;
+        camFwd.Normalize();
+        Vector3 camRight = Vector3.Cross(Vector3.up, camFwd);
+
+        if (isMovingForward) moveDirection += camFwd;
+        if (isMovingBack)    moveDirection -= camFwd;
+        if (isMovingLeft)    moveDirection -= camRight;
+        if (isMovingRight)   moveDirection += camRight;
+
+        // debug text no longer needs angleIndex
         
         // 施加水平移动力
         if (moveDirection.sqrMagnitude > 0.01f)
@@ -324,7 +301,8 @@ public class Movement : MonoBehaviour
             // 每秒打印一次调试信息
             if (Time.frameCount % 60 == 0)
             {
-                Debug.Log($"<color=green>[Movement] 施加水平力 - 角度:{angleIndex} | 方向:{moveDirection.normalized} | 力度:{horizontalMoveForce} | 总力:{force}</color>");
+                string mode = (cameraFollow != null && cameraFollow.IsInShoulderMode()) ? "shoulder" : "normal";
+                Debug.Log($"<color=green>[Movement] 施加水平力 - 模式:{mode} | 方向:{moveDirection.normalized} | 力度:{horizontalMoveForce} | 总力:{force}</color>");
             }
         }
         else if (hasMovementInput && Time.frameCount % 60 == 0)

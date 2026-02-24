@@ -218,118 +218,60 @@ public class Bulleting : MonoBehaviour
 
     bool SpawnAndFire()
     {
-        // 发射源
+        // 发射源（默认摄像头）
         Transform source = spawnSource ? spawnSource : (Camera.main ? Camera.main.transform : transform);
         Vector3 spawnPos = source.position + source.forward * spawnOffset;
 
-        // 从屏幕鼠标出发的射线
-        Ray camRay = (Camera.main != null)
-            ? Camera.main.ScreenPointToRay(Input.mousePosition)
-            : new Ray(source.position, source.forward);
-
-        Vector3 aimPoint = Vector3.zero;
-
-        // 为了满足“三个轴的发射方向”，我们使用一个通过火箭、
-        // 法线与摄像机方向一致的平面来决定瞄准点。这样的平面与画面平行，
-        // 效果类似许多第一人称/第三人称射击类游戏：开火始终朝着摄像机正在看
-        // 的方向，只不过由火箭位置发射。
-        Vector3 rocketPos = spawnPos;
-        GameObject rocket = GameObject.Find("Rocket");
-        if (rocket != null) rocketPos = rocket.transform.position;
-
-        bool gotAim = false;
-        Plane camPlane = new Plane(Camera.main ? Camera.main.transform.forward : Vector3.forward, rocketPos);
-        if (camPlane.Raycast(camRay, out float enter))
-        {
-            aimPoint = camRay.GetPoint(enter);
-            gotAim = true;
-        }
-
-        if (!gotAim)
-        {
-            // 如果摄像机射线与平面平行（理论上很少见），退回到水平XZ平面作为备选。
-            Plane horiz = new Plane(Vector3.up, rocketPos);
-            if (horiz.Raycast(camRay, out float enter2))
-            {
-                aimPoint = camRay.GetPoint(enter2);
-                gotAim = true;
-            }
-        }
-
-        if (!gotAim)
-        {
-            // 连备用平面也没命中说明出了问题，放弃发射
+        // only allow firing when camera is in shoulder mode
+        CamaraFollow camf = FindObjectOfType<CamaraFollow>();
+        if (camf == null || !camf.IsInShoulderMode())
             return false;
-        }
 
-        // 调试数据
-        if (debugDrawMapping)
-        {
-            dbg_hasMapping = true;
-            dbg_lastHitWorld = aimPoint;
-            dbg_lastMappedWorld = aimPoint;
-            dbg_lastSpawnWorld = spawnPos;
-            dbg_lastAimDir = (aimPoint - spawnPos).normalized;
-            Debug.Log($"[Bulleting] aimPoint={aimPoint} (computed on camera plane)");
-        }
+        GameObject rocket = GameObject.Find("Rocket");
+        Vector3 rocketPos = rocket ? rocket.transform.position : spawnPos;
 
-        // 计算朝向并旋转箭矢
-        Vector3 aimDir = (aimPoint - spawnPos);
-        if (aimDir.sqrMagnitude < 1e-6f) aimDir = source.forward;
-        aimDir.Normalize();
-        Quaternion rot = Quaternion.LookRotation(aimDir, Vector3.up);
+        // 现在只在肩侧视角中发射，直接使用摄像机朝向
+        Vector3 dir = Camera.main ? Camera.main.transform.forward : source.forward;
+        spawnPos = rocketPos + dir * spawnOffset;
+        Vector3 shAimDir = dir.normalized;
+        Quaternion shRot = Quaternion.LookRotation(shAimDir, Vector3.up);
 
-        // 生成实例（使用已存在的 Resources/Arrow 回退）
-        GameObject go = null;
+        // instantiate bullet directly
+        GameObject shGo = null;
         if (arrowPrefab != null)
-        {
-            go = Instantiate(arrowPrefab, spawnPos, rot);
-        }
+            shGo = Instantiate(arrowPrefab, spawnPos, shRot);
         else
         {
             GameObject resPrefab = Resources.Load<GameObject>("Arrow");
             if (resPrefab != null)
             {
-                go = Instantiate(resPrefab, spawnPos, rot);
+                shGo = Instantiate(resPrefab, spawnPos, shRot);
                 Debug.Log("[Bulleting] 使用 Resources/Arrow 作为 Arrow prefab");
             }
             else
             {
                 Debug.LogWarning("[Bulleting] arrowPrefab 未指派，且 Resources/Arrow 丢失 — 使用运行时回退体 (Capsule)");
-                go = CreateFallbackArrow(spawnPos, rot);
+                shGo = CreateFallbackArrow(spawnPos, shRot);
             }
         }
 
-        // 忽略与 Rocket 的碰撞
-        GameObject rocketObj = GameObject.Find("Rocket");
-        if (rocketObj != null)
+        // ignore collisions with rocket
+        if (rocket != null)
         {
-            Collider[] rocketCols = rocketObj.GetComponentsInChildren<Collider>(true);
-            Collider[] myCols = go.GetComponentsInChildren<Collider>(true);
+            Collider[] rocketCols = rocket.GetComponentsInChildren<Collider>(true);
+            Collider[] myCols = shGo.GetComponentsInChildren<Collider>(true);
             foreach (var myCol in myCols)
                 foreach (var rCol in rocketCols)
                     Physics.IgnoreCollision(myCol, rCol, true);
         }
-
-        Rigidbody rb = go.GetComponent<Rigidbody>();
-        if (rb == null) rb = go.AddComponent<Rigidbody>();
-
-        // 继承 Rocket 的线速度（若存在），以保留发射时的惯性
-        Vector3 inheritedVelocity = Vector3.zero;
-        GameObject rocketForVelocity = GameObject.Find("Rocket");
-        if (rocketForVelocity != null)
-        {
-            var rocketRb = rocketForVelocity.GetComponent<Rigidbody>();
-            if (rocketRb != null) inheritedVelocity = rocketRb.velocity;
-        }
-
-        rb.velocity = inheritedVelocity + aimDir * launchSpeed;
-        go.transform.rotation = rot;
-
-        ArrowBullet bullet = go.GetComponent<ArrowBullet>();
-        if (bullet == null) bullet = go.AddComponent<ArrowBullet>();
-        bullet.Init(stuckLifetime, Time.time);
-
+        Rigidbody shRb = shGo.GetComponent<Rigidbody>() ?? shGo.AddComponent<Rigidbody>();
+        Vector3 shInheritedVel = Vector3.zero;
+        var rocketRb = rocket ? rocket.GetComponent<Rigidbody>() : null;
+        if (rocketRb != null) shInheritedVel = rocketRb.velocity;
+        shRb.velocity = shInheritedVel + shAimDir * launchSpeed;
+        shGo.transform.rotation = shRot;
+        ArrowBullet shB = shGo.GetComponent<ArrowBullet>() ?? shGo.AddComponent<ArrowBullet>();
+        shB.Init(stuckLifetime, Time.time);
         return true;
     }
 

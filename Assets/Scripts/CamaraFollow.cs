@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -14,13 +15,25 @@ public class CamaraFollow : MonoBehaviour
     [SerializeField] private float rotationTransitionTime = 0.3f;   // 角度切换过渡时间
     [SerializeField] private float waitListTimeout = 0.2f;          // 等待列表超时时间（秒）
     [SerializeField] private float shoulderOffset = 0f;             // 肩部侧移，正为右肩，负为左肩
-    
+    [SerializeField] private float shoulderHeight = 2f;             // 肩侧时相机向上偏移高度
+    [SerializeField] private float shoulderTransitionTime = 0.3f;   // 切换肩侧/常态时动画时间
+
+    [Header("肩侧设置")]
+    [Tooltip("距离小于等于该值时进入肩侧模式，人机视角锁定。")]
+    [SerializeField] private float shoulderDistanceThreshold = 15f;
+
+    [Header("鼠标控制")]
+    [SerializeField] private float mouseSensitivity = 5f;          // 右键拖拽灵敏度
+    [SerializeField] private float minPitch = 5f;                  // 俯仰最小角度
+    [SerializeField] private float maxPitch = 80f;                 // 俯仰最大角度
+
     [Header("旋转音效")]
     [SerializeField] private AudioClip[] rotationClockwiseSounds;      // 顺时针旋转音效
     [SerializeField] private AudioClip[] rotationCounterClockwiseSounds; // 逆时针旋转音效
     
     // 基准摄像头角度偏移（Euler angles）
-    private readonly Vector3 baseRotation = new Vector3(30f, 30f, 0f);
+    // 现在不再 readonly，以便在鼠标拖拽时调整俯仰
+    private Vector3 baseRotation = new Vector3(30f, 30f, 0f);
     
     private float currentYRotation = 0f;  // 当前Y轴旋转角度
     private float currentDistance = 20f;  // 当前距离
@@ -29,6 +42,12 @@ public class CamaraFollow : MonoBehaviour
     private float startYRotation = 0f;    // 过渡起始Y旋转
     private float targetYRotation = 0f;   // 目标Y轴旋转
     private float debugTimer = 0f;        // 调试输出计时器
+
+    // whether currently in shoulder view mode (distance threshold met)
+    private bool shoulderMode = false;
+    private bool shoulderTransitioning = false;
+    private float shoulderBlend = 0f; // 0=normal,1=shoulder
+
     
     // 等待列表
     private class RotationTask
@@ -129,11 +148,29 @@ public class CamaraFollow : MonoBehaviour
     void LateUpdate()
     {
         if (target == null) return;
-        
-        ProcessWaitList();
-        HandleAngleSwitch();
+
+        // adjust distance first (may trigger shoulder switch)
         HandleDistanceControl();
+
+        // shoulder mode switching based on distance
+        bool wantShoulder = currentDistance <= shoulderDistanceThreshold;
+        if (wantShoulder && !shoulderMode)
+            EnterShoulderMode();
+        else if (!wantShoulder && shoulderMode)
+            ExitShoulderMode();
+
+        // always allow mouse look if dragging or cursor locked
+        HandleMouseLook();
+        // wait list only needed in non-shoulder/still mode
+        if (!shoulderMode)
+            ProcessWaitList();
+
+        // Q/E旋转在任意模式都可用
+        HandleAngleSwitch();
+
         UpdateCameraPosition();
+
+        // if in shoulder mode, make rocket yaw follow camera so bullets fly straight
     }
     
     /// <summary>
@@ -195,6 +232,90 @@ public class CamaraFollow : MonoBehaviour
         }
     }
     
+    /// <summary>
+    /// 处理鼠标按住右键时的自由视角拖拽（类似 DREDGE 等船只游戏）
+    /// </summary>
+    void HandleMouseLook()
+    {
+        if (TradingSystem.shopOpen) return;            // 商店打开时不响应
+
+        bool shouldRotate = Input.GetMouseButton(1) || Cursor.lockState == CursorLockMode.Locked;
+        if (!shouldRotate) return;
+
+        float mx = Input.GetAxis("Mouse X");
+        float my = Input.GetAxis("Mouse Y");
+
+
+        if (shoulderMode)
+        {
+            // only rotate the rocket, camera offset remains fixed behind
+            if (target != null)
+            {
+                target.Rotate(0f, mx * mouseSensitivity, 0f, Space.World);
+            }
+            // adjust pitch freely, but stay within limits
+            baseRotation.x -= my * mouseSensitivity;
+            baseRotation.x = Mathf.Clamp(baseRotation.x, minPitch, maxPitch);
+        }
+        else
+        {
+            // non-shoulder: do nothing with mouse
+        }
+    }
+
+    /// <summary>
+    /// 切换肩侧模式时调用
+    /// </summary>
+    void EnterShoulderMode()
+    {
+        if (shoulderTransitioning) return; // already animating
+        shoulderMode = true;
+        shoulderTransitioning = true;
+        StartCoroutine(ShoulderBlendCoroutine(true));
+
+        // reset camera offset so it sits directly behind rocket
+        currentYRotation = -baseRotation.y;
+        targetYRotation = currentYRotation;
+        isTransitioning = false;
+        // do not modify pitch here; allow free range
+
+        UpdateCameraPosition();
+
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+        Debug.Log("[CamaraFollow] 进入肩侧模式，锁定在火箭后方");
+    }
+
+    void ExitShoulderMode()
+    {
+        if (shoulderTransitioning) return; // ignore until blend finishes
+        shoulderMode = false;
+        shoulderTransitioning = true;
+        StartCoroutine(ShoulderBlendCoroutine(false));
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+        Debug.Log("[CamaraFollow] 退出肩侧模式");
+    }
+
+    /// <summary>
+    /// Blend value coroutine for shoulder transition (0→1 entering, 1→0 exiting)
+    /// </summary>
+    IEnumerator ShoulderBlendCoroutine(bool toShoulder)
+    {
+        float start = shoulderBlend;
+        float end = toShoulder ? 1f : 0f;
+        float elapsed = 0f;
+        while (elapsed < shoulderTransitionTime)
+        {
+            elapsed += Time.deltaTime;
+            shoulderBlend = Mathf.Lerp(start, end, elapsed / shoulderTransitionTime);
+            yield return null;
+        }
+        shoulderBlend = end;
+        shoulderTransitioning = false;
+    }
+
     /// <summary>
     /// 处理Q/E键切换角度
     /// </summary>
@@ -290,6 +411,11 @@ public class CamaraFollow : MonoBehaviour
     /// 播放旋转音效
     /// </summary>
     /// <param name="deltaAngle">角度增量（负数=顺时针，正数=逆时针）</param>
+    public bool IsInShoulderMode()
+    {
+        return shoulderMode;
+    }
+
     void PlayRotationSound(float deltaAngle)
     {
         if (audioSource == null) return;
@@ -346,11 +472,17 @@ public class CamaraFollow : MonoBehaviour
         Vector3 worldOffset = rocketYaw * localOffset;
 
         // 应用肩部水平偏移（基于相机当前右向）
-        if (shoulderOffset != 0f)
+        if (shoulderOffset != 0f || (shoulderMode && shoulderHeight != 0f))
         {
             Vector3 camDir = (pivotPoint - (pivotPoint + worldOffset)).normalized;
             Vector3 rightVec = Vector3.Cross(camDir, Vector3.up).normalized;
             worldOffset += rightVec * shoulderOffset;
+            if (shoulderMode && shoulderHeight != 0f)
+            {
+                // compute up direction perpendicular to camDir and rightVec (camera-local up)
+                Vector3 upVec = Vector3.Cross(rightVec, camDir).normalized;
+                worldOffset += upVec * shoulderHeight;
+            }
         }
 
         transform.position = pivotPoint + worldOffset;
@@ -399,11 +531,17 @@ public class CamaraFollow : MonoBehaviour
         );
         Quaternion rocketYaw = Quaternion.Euler(0f, target.eulerAngles.y, 0f);
         Vector3 worldOffset = rocketYaw * localOffset;
-        if (shoulderOffset != 0f)
+        if (shoulderOffset != 0f || shoulderBlend>0f)
         {
             Vector3 camDir = (pivotPoint - (pivotPoint + worldOffset)).normalized;
             Vector3 rightVec = Vector3.Cross(camDir, Vector3.up).normalized;
-            worldOffset += rightVec * shoulderOffset;
+            float blend = shoulderBlend;
+            worldOffset += rightVec * shoulderOffset * blend;
+            if (shoulderHeight!=0f && blend>0f)
+            {
+                Vector3 upVec = Vector3.Cross(rightVec, camDir).normalized;
+                worldOffset += upVec * shoulderHeight * blend;
+            }
         }
 
         // 设置位置
@@ -413,6 +551,10 @@ public class CamaraFollow : MonoBehaviour
         transform.LookAt(pivotPoint);
         
         // 每3秒输出调试信息
+
+        // shoulderBlend debug
+        if (Time.frameCount % 180 == 0)
+            Debug.Log($"[CamaraFollow] shoulderBlend={shoulderBlend:F2}");
         debugTimer += Time.deltaTime;
         if (debugTimer >= 3f)
         {
@@ -452,4 +594,18 @@ public class CamaraFollow : MonoBehaviour
                      $"距离: {currentDistance:F2}");
         }
     }
+
+    // draw simple crosshair when shoulderMode active
+    void OnGUI()
+    {
+        if (!shoulderMode) return;
+        float size = 16f;
+        Vector2 c = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+        Color old = GUI.color;
+        GUI.color = Color.white;
+        GUI.DrawTexture(new Rect(c.x - 1, c.y - size, 2, size * 2), Texture2D.whiteTexture);
+        GUI.DrawTexture(new Rect(c.x - size, c.y - 1, size * 2, 2), Texture2D.whiteTexture);
+        GUI.color = old;
+    }
 }
+

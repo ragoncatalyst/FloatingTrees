@@ -139,6 +139,12 @@ public class TradingSystem : MonoBehaviour
             UpdateUI();
             item.purchasedCount++;
 
+            // special effect: furnace power button increases thrust/move
+            if (item.gameObject.name == "ButtonPurchaseFurnacePower")
+            {
+                UpgradeManager.ApplyFurnacePowerUpgrade();
+            }
+
             // disable if reach limit
             if (item.maxPurchases > 0 && item.purchasedCount >= item.maxPurchases)
             {

@@ -3,6 +3,19 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
+public static class UpgradeManager
+{
+    public static float thrustMultiplier = 1f;
+    public static float moveMultiplier = 1f;
+
+    public static void ApplyFurnacePowerUpgrade()
+    {
+        thrustMultiplier *= 1.2f;  // 20% boost each purchase
+        moveMultiplier *= 1.2f;
+        Debug.Log("[UpgradeManager] Furnace power purchased: thrust and move multiplied");
+    }
+}
+
 public class Movement : MonoBehaviour
 {
     // ========================================
@@ -17,6 +30,15 @@ public class Movement : MonoBehaviour
     [SerializeField] private float mainThrust = 100f;            // 主推进力
     [SerializeField] private float horizontalMoveForce = 50f;   // 水平移动力
     [SerializeField] private AudioClip mainEngine;
+
+    [Header("Fuel")]
+    [SerializeField] private float maxFuel = 100f;              // 燃料上限
+    [SerializeField] private float fuelConsumptionRate = 20f;   // 每秒消耗量
+    [SerializeField] private float fuelRefillRate = 10f;        // 每秒补充量（在地面）
+    [SerializeField] private UnityEngine.UI.Slider fuelSlider;  // 燃料UI滑条
+
+    // runtime fuel value
+    private float currentFuel;
     
     [Header("Particle Effects")]
     [SerializeField] private ParticleSystem mainEngineParticles;
@@ -56,6 +78,16 @@ public class Movement : MonoBehaviour
     // 追踪玩家是否操控过火箭
     private bool hasPlayerControlled = false;
 
+    // 简单接地检测 —— 如果火箭接触地面则返回 true
+    private bool IsGrounded()
+    {
+        RaycastHit hit;
+        float checkDistance = 1.1f;
+        if (Physics.Raycast(transform.position, Vector3.down, out hit, checkDistance))
+            return true;
+        return false;
+    }
+
     // Start is called before the first frame update
     void Start()
     {
@@ -72,7 +104,16 @@ public class Movement : MonoBehaviour
             Debug.LogWarning("[Movement] horizontalMoveForce未设置，使用默认值50");
         }
         
-        Debug.Log($"[Movement] 参数已初始化 - mainThrust:{mainThrust}, horizontalMoveForce:{horizontalMoveForce}");
+        // 初始化燃料
+        currentFuel = maxFuel;
+        if (fuelSlider != null)
+        {
+            fuelSlider.minValue = 0f;
+            fuelSlider.maxValue = 1f;
+            fuelSlider.value = 1f;
+        }
+        
+        Debug.Log($"[Movement] 参数已初始化 - mainThrust:{mainThrust}, horizontalMoveForce:{horizontalMoveForce}, maxFuel:{maxFuel}");
         
         // 获取父物体的Rigidbody（必须存在）
         parentRigidbody = GetComponent<Rigidbody>();
@@ -214,7 +255,9 @@ public class Movement : MonoBehaviour
         if (TradingSystem.shopOpen) return;
 
         // 缓存输入状态
-        isThrustingThisFrame = Input.GetKey(KeyCode.Space);
+        bool space = Input.GetKey(KeyCode.Space);
+        // 如果燃料耗尽，不允许推进
+        isThrustingThisFrame = space && currentFuel > 0f;
         isMovingForward = Input.GetKey(KeyCode.W);
         isMovingBack = Input.GetKey(KeyCode.S);
         isMovingLeft = Input.GetKey(KeyCode.A);
@@ -259,11 +302,30 @@ public class Movement : MonoBehaviour
     {
         if (isThrustingThisFrame)
         {
+            // consume fuel
+            currentFuel -= fuelConsumptionRate * Time.fixedDeltaTime;
+            currentFuel = Mathf.Max(currentFuel, 0f);
+
             // 对父物体施加推力（驱动整体运动）- 始终向世界坐标系的上方
             if (parentRigidbody != null)
             {
-                parentRigidbody.AddForce(Vector3.up * mainThrust);
+                parentRigidbody.AddForce(Vector3.up * mainThrust * UpgradeManager.thrustMultiplier);
             }
+        }
+        else
+        {
+            // 如果未按空格且在地面，快速补充燃料
+            if (IsGrounded())
+            {
+                currentFuel += fuelRefillRate * Time.fixedDeltaTime;
+                currentFuel = Mathf.Min(currentFuel, maxFuel);
+            }
+        }
+
+        // 更新UI
+        if (fuelSlider != null)
+        {
+            fuelSlider.value = currentFuel / maxFuel;
         }
     }
 
@@ -295,7 +357,7 @@ public class Movement : MonoBehaviour
         // 施加水平移动力
         if (moveDirection.sqrMagnitude > 0.01f)
         {
-            Vector3 force = moveDirection.normalized * horizontalMoveForce;
+            Vector3 force = moveDirection.normalized * horizontalMoveForce * UpgradeManager.moveMultiplier;
             parentRigidbody.AddForce(force, ForceMode.Force);
             
             // 每秒打印一次调试信息

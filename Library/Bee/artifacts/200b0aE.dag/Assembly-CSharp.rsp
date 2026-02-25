@@ -369,6 +369,8 @@
 "Assets/Scripts/Movement.cs"
 "Assets/Scripts/Navigator.cs"
 "Assets/Scripts/ObstacleTransparency.cs"
+"Assets/Scripts/Phantom.cs"
+"Assets/Scripts/PhantomSpawner.cs"
 "Assets/Scripts/PixelateEffect.cs"
 "Assets/Scripts/RefitManager.cs"
 "Assets/Scripts/Resulting.cs"

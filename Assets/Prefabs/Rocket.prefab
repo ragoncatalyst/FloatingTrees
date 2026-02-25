@@ -1116,15 +1116,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   mainThrust: 950
-  rotationThrust: 100
+  horizontalMoveForce: 50
   mainEngine: {fileID: 0}
+  maxFuel: 100
+  fuelConsumptionRate: 20
+  fuelRefillRate: 10
+  fuelSlider: {fileID: 0}
   mainEngineParticles: {fileID: 0}
-  leftThrusterParticle: {fileID: 0}
-  rightThrusterParticle: {fileID: 0}
   explosionForceMultiplier: 50
   debrisMass: 10
   debrisDrag: 0.1
   debrisAngularDrag: 0.3
+  explosionClips: []
+  explosionVolume: 1
 --- !u!82 &9193487064750618554
 AudioSource:
   m_ObjectHideFlags: 0
@@ -1234,10 +1238,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   victoryText: {fileID: 0}
-  defeatText: {fileID: 0}
-  defeatCommentText: {fileID: 0}
   levelLoadDelay: 3
-  failureCommentsFile: {fileID: 4900000, guid: b48e7db05a54848be949fb3b54e8be84, type: 3}
   maxLandingSpeed: 10
   stopConfirmationTime: 0.8
   stoppedThreshold: 0.1

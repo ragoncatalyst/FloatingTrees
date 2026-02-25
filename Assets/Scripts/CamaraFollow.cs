@@ -100,6 +100,40 @@ public class CamaraFollow : MonoBehaviour
         Debug.Log($"[CamaraFollow] 摄像头角度已设置为索引 {angleIndex} ({targetAngle}° 相对)");
     }
 
+    private bool wasLockedBeforeSceneChange = false;
+
+    void OnEnable()
+    {
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    void OnDisable()
+    {
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+    {
+        // 如果加载的不是主场景(Main)，就解锁鼠标并记住之前是否锁定
+        if (scene.name != "Main")
+        {
+            wasLockedBeforeSceneChange = (Cursor.lockState == CursorLockMode.Locked);
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+        }
+        else
+        {
+            // 返回主场景，如果之前是锁定的，则恢复锁定状态
+            if (wasLockedBeforeSceneChange && shoulderMode)
+            {
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+            }
+            // reset flag so that future switches behave correctly
+            wasLockedBeforeSceneChange = false;
+        }
+    }
+
     void Start()
     {
         // 获取或添加AudioSource组件
@@ -253,9 +287,9 @@ public class CamaraFollow : MonoBehaviour
             {
                 target.Rotate(0f, mx * mouseSensitivity, 0f, Space.World);
             }
-            // adjust pitch freely, but stay within limits
+            // adjust pitch freely; allow looking up (!!) and down with a generous clamp
             baseRotation.x -= my * mouseSensitivity;
-            baseRotation.x = Mathf.Clamp(baseRotation.x, minPitch, maxPitch);
+            baseRotation.x = Mathf.Clamp(baseRotation.x, -80f, 80f); // allow negative for upward
         }
         else
         {
@@ -272,6 +306,9 @@ public class CamaraFollow : MonoBehaviour
         shoulderMode = true;
         shoulderTransitioning = true;
         StartCoroutine(ShoulderBlendCoroutine(true));
+
+        // do not reset pitch; keep whatever angle player was looking at
+        // (clamping is handled during mouse drag below and allows upward view)
 
         // reset camera offset so it sits directly behind rocket
         currentYRotation = -baseRotation.y;
